@@ -5,6 +5,7 @@ from app.api.health import router as health_router
 from app.api.tariff import router as tariff_router
 from app.api.replay import router as replay_router
 from app.api.weather import router as weather_router
+from app.api.forecast import router as forecast_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -38,6 +39,9 @@ app.include_router(replay_router, prefix="/api")
 
 # Include Open-Meteo Weather Router under /api
 app.include_router(weather_router, prefix="/api")
+
+# Include XGBoost Demand Forecast Router under /api
+app.include_router(forecast_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
