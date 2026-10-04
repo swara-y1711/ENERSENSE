@@ -1,65 +1,126 @@
 'use client';
 
 import React, { useState } from 'react';
+import {
+  FlexibilityCurrent,
+  ImpactCurrent,
+  ImpactSimulation,
+  ReplayRecord,
+  simulateImpact,
+} from '../lib/api';
 
 interface WhatIfSimulatorProps {
-  reductionTarget: number;
-  onTargetChange: (target: number) => void;
-  duration: number;
-  onDurationChange: (hours: number) => void;
-  subsystems: { hvac: boolean; ev: boolean; storage: boolean };
-  onSubsystemChange: (sub: { hvac: boolean; ev: boolean; storage: boolean }) => void;
-  onReset: () => void;
-  onOpenDispatchModal: () => void;
+  replay: ReplayRecord | null;
+  flexibility: FlexibilityCurrent | null;
+  impact: ImpactCurrent | null;
   showToast: (msg: string, type?: 'info' | 'success') => void;
-  basePeakKw?: number;
+}
+
+function formatMetric(value: number | null | undefined, unit: string): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`
+    : 'Not available';
+}
+
+interface CompletedSimulation {
+  result: ImpactSimulation;
+  replayTimestamp: string;
+  requestedReductionKw: number;
+  durationHours: number;
 }
 
 export default function WhatIfSimulator({
-  reductionTarget,
-  onTargetChange,
-  duration,
-  onDurationChange,
-  subsystems,
-  onSubsystemChange,
-  onReset,
-  onOpenDispatchModal,
+  replay,
+  flexibility,
+  impact,
   showToast,
-  basePeakKw = 468,
 }: WhatIfSimulatorProps) {
+  const [reductionTarget, setReductionTarget] = useState(0.6);
+  const [duration, setDuration] = useState(1);
+  const [simulation, setSimulation] = useState<CompletedSimulation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [latencyMs, setLatencyMs] = useState(42);
-  const [pulseBoxes, setPulseBoxes] = useState(false);
+  const flexibleDemandKw =
+    typeof flexibility?.potential_flexible_kw === 'number' &&
+    Number.isFinite(flexibility.potential_flexible_kw) &&
+    flexibility.potential_flexible_kw >= 0
+      ? flexibility.potential_flexible_kw
+      : null;
+  const isFlexibilityAvailable = flexibleDemandKw !== null;
+  const maximumReduction = flexibleDemandKw ?? 0;
+  const requestedReductionKw = Math.min(
+    Math.max(0, reductionTarget),
+    maximumReduction,
+  );
+  const isAchievable =
+    isFlexibilityAvailable && requestedReductionKw <= flexibleDemandKw;
+  const isCurrentSimulation =
+    simulation !== null &&
+    simulation.replayTimestamp === replay?.timestamp &&
+    simulation.requestedReductionKw === requestedReductionKw &&
+    simulation.durationHours === duration;
+  const simulationActualDemandKw = isCurrentSimulation
+    ? simulation.result.average_actual_demand_kw
+    : null;
+  const actualDemandKw =
+    typeof simulationActualDemandKw === 'number' &&
+    Number.isFinite(simulationActualDemandKw)
+      ? simulationActualDemandKw
+      : replay?.demand_kw ?? impact?.actual_demand_kw;
+  const appliedReductionKw = isFlexibilityAvailable
+    ? Math.min(requestedReductionKw, flexibleDemandKw)
+    : null;
+  const scenarioDemandKw =
+    typeof actualDemandKw === 'number' &&
+    typeof appliedReductionKw === 'number' &&
+    Number.isFinite(actualDemandKw)
+      ? Math.max(0, actualDemandKw - appliedReductionKw)
+      : null;
+  const estimatedEnergyReductionKwh =
+    typeof appliedReductionKw === 'number' && Number.isFinite(duration)
+      ? appliedReductionKw * duration
+      : null;
+  const canSimulate = isFlexibilityAvailable && flexibleDemandKw > 0;
 
-  // Compute available capacity based on enabled subsystems
-  const availableCap =
-    (subsystems.hvac ? 45 : 0) +
-    (subsystems.ev ? 25 : 0) +
-    (subsystems.storage ? 15 : 0);
+  const runSimulation = async () => {
+    if (!replay || !isFlexibilityAvailable || !canSimulate) {
+      showToast(
+        isFlexibilityAvailable
+          ? 'No positive flexible demand is currently estimated.'
+          : 'Flexibility estimate unavailable.',
+      );
+      return;
+    }
 
-  // Outcome math
-  const newPeak = Math.max(260, basePeakKw - reductionTarget);
-  const peakSavedPct = ((reductionTarget / basePeakKw) * 100).toFixed(1);
-  const energyShifted = Math.round(reductionTarget * duration * 0.85);
-  const netSavings = energyShifted * 110;
-  const carbonAvoided = Math.round(energyShifted * 0.8);
-  const isFeasible = reductionTarget <= availableCap;
-
-  const handleRunCalculation = () => {
+    const appliedRequestKw = Math.min(
+      Math.max(0, reductionTarget),
+      flexibleDemandKw,
+    );
+    const submittedReplayTimestamp = replay.timestamp;
+    const submittedDurationHours = duration;
     setIsCalculating(true);
-    setTimeout(() => {
-      const lat = Math.floor(Math.random() * 20) + 32;
-      setLatencyMs(lat);
-      setPulseBoxes(true);
+    try {
+      const result = await simulateImpact(
+        submittedReplayTimestamp,
+        submittedDurationHours,
+        appliedRequestKw,
+      );
+      setSimulation({
+        result,
+        replayTimestamp: submittedReplayTimestamp,
+        requestedReductionKw: appliedRequestKw,
+        durationHours: submittedDurationHours,
+      });
+      showToast('Advisory impact simulation updated.', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      showToast(`Impact simulation unavailable: ${message}`);
+    } finally {
       setIsCalculating(false);
-      setTimeout(() => setPulseBoxes(false), 500);
-      showToast('Scenario simulation recalculated successfully.', 'success');
-    }, 450);
+    }
   };
 
   return (
     <div className="bg-surface-container-lowest p-4 sm:p-6 rounded-2xl shadow-sm border border-surface-container-high">
-      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-surface-container-high mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
@@ -70,35 +131,27 @@ export default function WhatIfSimulator({
               Grid Event “What-If” Simulator
             </h2>
             <p className="text-xs text-outline">
-              Calculate physical feasibility, avoided peak charges, and carbon abatement prior to curtailment dispatch
+              Advisory simulation using the backend historical flexibility model; no equipment control.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 self-start sm:self-auto">
           <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] sm:text-xs font-mono font-bold uppercase shrink-0">
-            Simulation Engine Live
+            {isFlexibilityAvailable ? 'Model data available' : 'Flexibility estimate unavailable'}
           </span>
-          <button
-            className="text-xs text-outline hover:text-on-surface font-medium hover:underline p-1 cursor-pointer"
-            onClick={onReset}
-          >
-            Reset Defaults
-          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
-        {/* Left: Input Controls (7 Cols on desktop, 12 on mobile/tablet) */}
         <div className="lg:col-span-7 bg-surface-container-low p-4 sm:p-5 rounded-xl space-y-5">
-          {/* 1. Range Slider with touch target */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-xs font-bold text-on-surface flex items-center gap-1">
                 <span>Requested Reduction Target</span>
                 <span
                   className="material-symbols-outlined text-[15px] text-outline cursor-help"
-                  title="Power shedding target for the upcoming peak event"
+                  title="A scenario input; not a measured or controllable load."
                 >
                   help_outline
                 </span>
@@ -106,16 +159,19 @@ export default function WhatIfSimulator({
               <div className="flex items-center gap-1">
                 <input
                   type="number"
-                  min={10}
-                  max={120}
-                  value={reductionTarget}
-                  onChange={(e) => {
-                    let val = parseInt(e.target.value, 10);
-                    if (isNaN(val)) val = 10;
-                    val = Math.max(10, Math.min(120, val));
-                    onTargetChange(val);
+                  min={0}
+                  max={maximumReduction}
+                  step={0.01}
+                  value={requestedReductionKw}
+                  disabled={!isFlexibilityAvailable}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
+                    if (Number.isFinite(value)) {
+                      setReductionTarget(Math.max(0, Math.min(maximumReduction, value)));
+                      setSimulation(null);
+                    }
                   }}
-                  className="w-16 h-8 text-center font-mono font-bold text-xs bg-surface-container-lowest rounded-lg border border-surface-container-high outline-none focus:ring-1 focus:ring-primary"
+                  className="w-20 h-8 text-center font-mono font-bold text-xs bg-surface-container-lowest rounded-lg border border-surface-container-high outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 />
                 <span className="text-xs font-mono text-outline">kW</span>
               </div>
@@ -124,241 +180,162 @@ export default function WhatIfSimulator({
             <div className="py-2">
               <input
                 type="range"
-                min={10}
-                max={120}
-                step={1}
-                value={reductionTarget}
-                onChange={(e) => onTargetChange(parseInt(e.target.value, 10))}
-                className="w-full accent-primary h-2 bg-surface-container-high rounded cursor-pointer touch-pan-x"
+                min={0}
+                max={maximumReduction}
+                step={0.01}
+                value={requestedReductionKw}
+                disabled={!isFlexibilityAvailable}
+                onChange={(event) => {
+                  setReductionTarget(Number(event.target.value));
+                  setSimulation(null);
+                }}
+                className="w-full accent-primary h-2 bg-surface-container-high rounded cursor-pointer touch-pan-x disabled:opacity-50"
               />
             </div>
 
             <div className="flex justify-between text-[10px] font-mono text-outline mt-1 font-medium flex-wrap gap-1">
-              <span>10 kW (Mild)</span>
-              <span>45 kW (Recommended)</span>
-              <span>{availableCap} kW (Available Max)</span>
-              <span>120 kW (Stress)</span>
+              <span>Requested reduction</span>
+              <span>
+                Estimated Flexible Demand:{' '}
+                {isFlexibilityAvailable
+                  ? formatMetric(flexibleDemandKw, 'kW')
+                  : 'Flexibility estimate unavailable'}
+              </span>
             </div>
           </div>
 
-          {/* 2. Duration Selector */}
           <div>
             <label className="text-xs font-bold text-on-surface block mb-1.5">
-              Event Curtailment Duration
+              Simulation Duration
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((hrs) => (
+              {[1, 2, 3, 4].map((hours) => (
                 <button
-                  key={hrs}
+                  key={hours}
                   className={`min-h-[44px] py-2 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer ${
-                    duration === hrs
+                    duration === hours
                       ? 'font-bold bg-primary text-on-primary shadow-xs'
                       : 'font-medium bg-surface-container-lowest text-on-surface hover:bg-surface-container border border-surface-container-high'
                   }`}
-                  onClick={() => onDurationChange(hrs)}
+                  onClick={() => {
+                    setDuration(hours);
+                    setSimulation(null);
+                  }}
                 >
-                  {hrs} Hour{hrs > 1 ? 's' : ''}
+                  {hours} Hour{hours > 1 ? 's' : ''}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 3. Subsystem Engagement Matrix */}
-          <div>
-            <label className="text-xs font-bold text-on-surface block mb-1.5">
-              Facility Sub-system Engagement Matrix
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <label className="flex items-center sm:items-start gap-2.5 p-3 min-h-[44px] bg-surface-container-lowest rounded-lg border border-surface-container-high cursor-pointer hover:bg-surface-container transition-colors">
-                <input
-                  type="checkbox"
-                  checked={subsystems.hvac}
-                  onChange={(e) =>
-                    onSubsystemChange({ ...subsystems, hvac: e.target.checked })
-                  }
-                  className="accent-primary h-5 w-5 rounded cursor-pointer"
-                />
-                <div>
-                  <span className="text-xs font-bold text-on-surface block leading-tight">
-                    HVAC Pre-cooling
-                  </span>
-                  <span className="text-[10px] text-outline font-mono">Up to 45 kW</span>
-                </div>
-              </label>
-
-              <label className="flex items-center sm:items-start gap-2.5 p-3 min-h-[44px] bg-surface-container-lowest rounded-lg border border-surface-container-high cursor-pointer hover:bg-surface-container transition-colors">
-                <input
-                  type="checkbox"
-                  checked={subsystems.ev}
-                  onChange={(e) =>
-                    onSubsystemChange({ ...subsystems, ev: e.target.checked })
-                  }
-                  className="accent-primary h-5 w-5 rounded cursor-pointer"
-                />
-                <div>
-                  <span className="text-xs font-bold text-on-surface block leading-tight">
-                    EV Throttling
-                  </span>
-                  <span className="text-[10px] text-outline font-mono">Up to 25 kW</span>
-                </div>
-              </label>
-
-              <label className="flex items-center sm:items-start gap-2.5 p-3 min-h-[44px] bg-surface-container-lowest rounded-lg border border-surface-container-high cursor-pointer hover:bg-surface-container transition-colors">
-                <input
-                  type="checkbox"
-                  checked={subsystems.storage}
-                  onChange={(e) =>
-                    onSubsystemChange({ ...subsystems, storage: e.target.checked })
-                  }
-                  className="accent-primary h-5 w-5 rounded cursor-pointer"
-                />
-                <div>
-                  <span className="text-xs font-bold text-on-surface block leading-tight">
-                    Thermal Bank
-                  </span>
-                  <span className="text-[10px] text-outline font-mono">Up to 15 kW</span>
-                </div>
-              </label>
-            </div>
+          <div className="p-3 bg-surface-container-lowest rounded-lg border border-surface-container-high text-xs text-outline">
+            {flexibility?.notice ?? 'Flexibility estimate unavailable.'}
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <button
-              disabled={isCalculating}
-              onClick={handleRunCalculation}
+              disabled={isCalculating || !replay || !canSimulate}
+              onClick={() => void runSimulation()}
               className="min-h-[44px] px-4 py-2.5 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-70"
             >
               <span className="material-symbols-outlined text-[18px]">play_arrow</span>
-              <span>
-                {isCalculating ? 'CALCULATING...' : 'RE-RUN SCENARIO CALCULATION'}
-              </span>
+              <span>{isCalculating ? 'SIMULATING...' : 'RUN ADVISORY SIMULATION'}</span>
             </button>
             <span className="text-[11px] font-mono text-outline text-center sm:text-right">
-              Computation latency: {latencyMs}ms
+              Source: backend impact model
             </span>
           </div>
         </div>
 
-        {/* Right: Projected Curtailment Impact (5 Cols on desktop, 12 on mobile/tablet) */}
         <div className="lg:col-span-5 bg-surface-container p-4 sm:p-5 rounded-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-on-surface">
                 Projected Curtailment Impact
               </h3>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono ${
-                  isFeasible
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-tertiary-fixed text-tertiary'
-                }`}
-              >
-                {isFeasible ? '100% Feasible' : 'Stress Threshold'}
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-surface-container-high text-outline">
+                {simulation ? 'Simulated' : impact?.mode ?? 'Not available'}
               </span>
             </div>
 
-            {/* 4 Outcome Cards */}
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3 mb-3">
-              <div
-                className={`bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high ${
-                  pulseBoxes ? 'pulse-glow' : ''
-                }`}
-              >
+              <div className="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high">
                 <span className="text-[10px] font-mono uppercase text-outline">
-                  Target Reduction
+                  {isCurrentSimulation
+                    ? 'Actual Demand · Simulation Interval'
+                    : 'Actual Demand'}
                 </span>
                 <div className="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5">
-                  {reductionTarget} kW
+                  {formatMetric(actualDemandKw, 'kW')}
                 </div>
-                <span className="text-[10px] text-outline truncate block">
-                  Shed Cap: {availableCap} kW
-                </span>
+                {isCurrentSimulation && (
+                  <span className="text-[10px] text-outline">
+                    {simulation.result.start_timestamp} – {simulation.result.end_timestamp}
+                  </span>
+                )}
               </div>
-
-              <div
-                className={`bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high ${
-                  pulseBoxes ? 'pulse-glow' : ''
-                }`}
-              >
+              <div className="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high">
                 <span className="text-[10px] font-mono uppercase text-outline">
-                  Peak Reduction
+                  Scenario Demand
                 </span>
                 <div className="text-base sm:text-xl font-bold font-mono text-on-surface mt-0.5 truncate">
-                  {basePeakKw} → {newPeak} kW
+                  {formatMetric(scenarioDemandKw, 'kW')}
                 </div>
-                <span className="text-[10px] text-primary font-bold">
-                  -{peakSavedPct}% Peak Shaved
-                </span>
               </div>
-
-              <div
-                className={`bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high ${
-                  pulseBoxes ? 'pulse-glow' : ''
-                }`}
-              >
+              <div className="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high">
                 <span className="text-[10px] font-mono uppercase text-outline">
-                  Energy Shifted
+                  Estimated Flexible Demand
                 </span>
                 <div className="text-lg sm:text-xl font-bold font-mono text-on-surface mt-0.5">
-                  {energyShifted} kWh
+                  {isFlexibilityAvailable
+                    ? formatMetric(flexibleDemandKw, 'kW')
+                    : 'Flexibility estimate unavailable'}
                 </div>
-                <span className="text-[10px] text-outline">
-                  Over {duration} Hour{duration > 1 ? 's' : ''}
-                </span>
               </div>
-
-              <div
-                className={`bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high ${
-                  pulseBoxes ? 'pulse-glow' : ''
-                }`}
-              >
+              <div className="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high">
                 <span className="text-[10px] font-mono uppercase text-outline">
-                  Net Avoided Cost
+                  Applied Reduction
+                </span>
+                <div className="text-lg sm:text-xl font-bold font-mono text-on-surface mt-0.5">
+                  {formatMetric(appliedReductionKw, 'kW')}
+                </div>
+              </div>
+              <div className="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high">
+                <span className="text-[10px] font-mono uppercase text-outline">
+                  Estimated Energy Reduction
                 </span>
                 <div className="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5">
-                  ₹{netSavings.toLocaleString('en-IN')}
+                  {formatMetric(estimatedEnergyReductionKwh, 'kWh')}
                 </div>
-                <span className="text-[10px] text-on-surface-variant font-medium">
-                  Avoided Surcharges
-                </span>
               </div>
             </div>
 
-            {/* Scope 2 Carbon Card */}
-            <div
-              className={`p-3 bg-surface-container-lowest rounded-xl border border-surface-container-high flex items-center justify-between mb-4 ${
-                pulseBoxes ? 'pulse-glow' : ''
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px] shrink-0">
-                  eco
-                </span>
-                <div>
-                  <span className="text-xs font-bold text-on-surface block">
-                    Scope 2 Carbon Avoided
-                  </span>
-                  <span className="text-[10px] text-outline font-mono">
-                    0.80 kg CO₂e / kWh grid factor
-                  </span>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-base font-bold font-mono text-primary">
-                  {carbonAvoided} kg
-                </div>
-                <span className="text-[10px] text-outline">CO₂e Mitigation</span>
-              </div>
+            <div className="p-3 bg-surface-container-lowest rounded-xl border border-surface-container-high flex items-center justify-between mb-4">
+              <span className="text-xs font-bold text-on-surface">
+                Scenario Achievability
+              </span>
+              <span className={`text-xs font-bold font-mono text-right ${isAchievable ? 'text-primary' : 'text-error'}`}>
+                {!isFlexibilityAvailable
+                  ? 'Flexibility estimate unavailable'
+                  : isAchievable
+                    ? 'Within estimated flexibility'
+                    : 'Exceeds estimated flexibility'}
+              </span>
             </div>
+            <p className="text-[10px] text-outline">
+              {simulation?.result.notice ??
+                impact?.notice ??
+                'This is a what-if scenario and does not claim automatic equipment control.'}
+            </p>
           </div>
 
-          {/* Dispatch Action Button */}
           <button
-            className="w-full min-h-[44px] py-3 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-            onClick={onOpenDispatchModal}
+            className="w-full min-h-[44px] mt-4 py-3 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+            onClick={() => void runSimulation()}
+            disabled={isCalculating || !replay || !canSimulate}
           >
-            <span className="material-symbols-outlined text-[18px]">bolt</span>
-            <span>Stage Automated Curtailment Dispatch</span>
+            <span className="material-symbols-outlined text-[18px]">science</span>
+            <span>Run Advisory Simulation</span>
           </button>
         </div>
       </div>

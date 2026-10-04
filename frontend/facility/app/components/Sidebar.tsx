@@ -123,22 +123,17 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Subsystem Health Badge */}
+        {/* Replay Source Badge */}
         <div className="mt-6 pt-4 border-t border-surface-container-high/60">
-          <div
-            className="p-3 bg-surface-container-low rounded-xl flex items-center justify-between cursor-pointer hover:bg-surface-container transition-colors"
-            onClick={() =>
-              showToast('Modbus & BACnet gateway health: 142/142 telemetry circuits verified.', 'success')
-            }
-          >
+          <div className="p-3 bg-surface-container-low rounded-xl flex items-center justify-between">
             <div>
               <div className="text-[10px] font-mono uppercase text-outline">
-                Subsystem Health
+                Data Source
               </div>
-              <div className="text-xs font-bold text-primary">99.82% Optimal</div>
+              <div className="text-xs font-bold text-primary">I-BLEND Replay</div>
             </div>
             <span className="material-symbols-outlined text-primary text-[20px]">
-              verified
+              history
             </span>
           </div>
         </div>

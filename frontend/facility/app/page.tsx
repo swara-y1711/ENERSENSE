@@ -1,240 +1,423 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import Sidebar from './components/Sidebar';
-import BreadcrumbBar from './components/BreadcrumbBar';
-import KpiRibbon from './components/KpiRibbon';
-import DemandProfileChart from './components/DemandProfileChart';
-import SubmeterBreakdown from './components/SubmeterBreakdown';
-import WhatIfSimulator from './components/WhatIfSimulator';
-import ImpactVerification from './components/ImpactVerification';
-import DeveloperDrawer from './components/DeveloperDrawer';
-import SubmeterDrawerModal from './components/SubmeterDrawerModal';
-import OccupantModal from './components/OccupantModal';
-import DispatchConfirmationModal from './components/DispatchConfirmationModal';
-import ToastContainer, { ToastMessage } from './components/ToastContainer';
+import React, { FormEvent, useEffect, useState } from 'react';
+import FacilityManagerDashboard from './components/FacilityManagerDashboard';
+import OccupantDashboard from './components/OccupantDashboard';
+import { getReplayStatus } from './lib/api';
+import { OccupantProfile } from './data/facilityData';
 
-import {
-  BUILDINGS,
-  BuildingOption,
-  INITIAL_KPI,
-  KpiMetrics,
-  AUDIT_LOGS,
-  AuditLogItem,
-} from './data/facilityData';
+type AccountRole = 'manager' | 'occupant';
+type Screen = 'welcome' | 'manager-form' | 'occupant-form' | 'dashboard';
 
-export default function FacilityManagerDashboard() {
-  // Reactive State
-  const [activeBuilding, setActiveBuilding] = useState<BuildingOption>(BUILDINGS[0]);
-  const [activePage, setActivePage] = useState<string>('Overview');
-  const [activeRole, setActiveRole] = useState<'FM' | 'Occupant'>('FM');
-  const [timeframe, setTimeframe] = useState<string>('live');
+interface ManagerProfile {
+  name: string;
+  workEmail: string;
+  managerId: string;
+  facility: string;
+  phone: string;
+}
 
-  const [kpi, setKpi] = useState<KpiMetrics>(INITIAL_KPI);
-  const [activeKw, setActiveKw] = useState<number>(343);
+interface StoredSession {
+  role: AccountRole;
+  manager: ManagerProfile | null;
+  occupant: OccupantProfile | null;
+}
 
-  // Simulator state
-  const [reductionTarget, setReductionTarget] = useState<number>(45);
-  const [duration, setDuration] = useState<number>(3);
-  const [subsystems, setSubsystems] = useState({
-    hvac: true,
-    ev: true,
-    storage: true,
-  });
+const SESSION_KEY = 'enersense.mvp.session';
 
-  // Audit Logs state
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(AUDIT_LOGS);
+function isManagerProfile(value: unknown): value is ManagerProfile {
+  if (!value || typeof value !== 'object') return false;
+  const profile = value as Record<string, unknown>;
+  return ['name', 'workEmail', 'managerId', 'facility', 'phone'].every(
+    (key) => typeof profile[key] === 'string',
+  );
+}
 
-  // Modals state
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [submeterDrawerOpen, setSubmeterDrawerOpen] = useState(false);
-  const [occupantModalOpen, setOccupantModalOpen] = useState(false);
-  const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
+function isOccupantProfile(value: unknown): value is OccupantProfile {
+  if (!value || typeof value !== 'object') return false;
+  const profile = value as Record<string, unknown>;
+  return ['name', 'email', 'phone', 'building', 'flatNumber'].every(
+    (key) => typeof profile[key] === 'string',
+  );
+}
 
-  // Toast notifications state
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+function readStoredSession(): StoredSession | null {
+  const stored = window.localStorage.getItem(SESSION_KEY);
+  if (!stored) return null;
 
-  const showToast = (msg: string, type: 'info' | 'success' | 'alert' = 'info') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newToast: ToastMessage = { id, msg, type };
-    setToasts((prev) => [...prev, newToast]);
+  try {
+    const value: unknown = JSON.parse(stored);
+    if (!value || typeof value !== 'object') return null;
+    const session = value as Record<string, unknown>;
+    if (session.role !== 'manager' && session.role !== 'occupant') return null;
+    const manager = isManagerProfile(session.manager) ? session.manager : null;
+    const occupant = isOccupantProfile(session.occupant) ? session.occupant : null;
+    if (session.role === 'manager' && !manager) return null;
+    if (session.role === 'occupant' && !occupant) return null;
+    return { role: session.role, manager, occupant };
+  } catch {
+    return null;
+  }
+}
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3200);
-  };
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  // Live Heartbeat Jitter Simulator
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const jitter = Math.floor(Math.random() * 5) - 2;
-      setActiveKw((prev) => Math.max(300, Math.min(400, prev + jitter)));
-    }, 3500);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Timeframe selector handler
-  const handleSelectTimeframe = (tfId: string, label: string) => {
-    setTimeframe(tfId);
-    if (tfId === 'live') {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 4820, cumDelta: '+4.2%' }));
-    } else if (tfId === 'yesterday') {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 5210, cumDelta: '-1.5%' }));
-    } else if (tfId === '7d') {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 33650, cumDelta: '+0.8%' }));
-    } else {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 4940, cumDelta: '+2.0%' }));
-    }
-    showToast(`Dashboard updated for ${label} view`);
-  };
-
-  // Simulator reset
-  const handleResetSimulator = () => {
-    setReductionTarget(45);
-    setDuration(3);
-    setSubsystems({ hvac: true, ev: true, storage: true });
-    showToast('Simulator restored to baseline parameters.');
-  };
-
-  // Confirm Dispatch handler
-  const handleConfirmDispatch = () => {
-    setDispatchModalOpen(false);
-    showToast(
-      `Automated curtailment armed (-${reductionTarget} kW). BACnet command queued.`,
-      'success'
-    );
-
-    const newLog: AuditLogItem = {
-      id: `#DR-${Math.floor(Math.random() * 100) + 883}`,
-      window: `Today, 18:00 - ${18 + duration}:00`,
-      committedKw: reductionTarget,
-      deliveredKw: 'Pending',
-      compliancePct: 'Armed',
-      status: 'Armed',
-      icon: 'schedule',
-      statusNote: 'Pre-cooling',
-      toastNote: `Event #DR-883: Armed -${reductionTarget}kW automated curtailment.`,
-    };
-
-    setAuditLogs((prev) => [newLog, ...prev]);
-  };
-
-  // Synchronize available capacity for KPI flex
-  const availableCap =
-    (subsystems.hvac ? 45 : 0) +
-    (subsystems.ev ? 25 : 0) +
-    (subsystems.storage ? 15 : 0);
-
-  const kpiUpdated: KpiMetrics = {
-    ...kpi,
-    flexibleShedCapKw: availableCap,
-    flexPct: `${((availableCap / activeKw) * 100).toFixed(1)}%`,
-  };
-
+function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
-    <div className="bg-surface font-sans text-on-surface antialiased overflow-x-hidden min-h-screen flex flex-col">
-      {/* Header */}
-      <Header
-        activeBuilding={activeBuilding}
-        onSelectBuilding={setActiveBuilding}
-        onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
-        onOpenOccupantModal={() => {
-          setActiveRole('Occupant');
-          setOccupantModalOpen(true);
-        }}
-        showToast={showToast}
-        activeRole={activeRole}
-        onSelectRole={setActiveRole}
-      />
-
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activePage={activePage}
-        onSelectPage={setActivePage}
-        mobileOpen={mobileSidebarOpen}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
-        showToast={showToast}
-      />
-
-      {/* Main Content Wrapper */}
-      <main className="w-full lg:pl-60 pt-16 min-h-screen p-3 sm:p-5 md:p-6 transition-all duration-300">
-        <div className="max-w-7xl mx-auto space-y-5 md:space-y-6">
-          {/* Breadcrumbs & Controls */}
-          <BreadcrumbBar
-            activeBuilding={activeBuilding}
-            timeframe={timeframe}
-            onSelectTimeframe={handleSelectTimeframe}
-            showToast={showToast}
-          />
-
-          {/* KPI Ribbon (Fluid 1 -> 2 -> 4 cols) */}
-          <KpiRibbon kpi={kpiUpdated} activeKw={activeKw} />
-
-          {/* Main Row: Demand Profile Chart & Submeter Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
-            <DemandProfileChart reductionTarget={reductionTarget} />
-            <SubmeterBreakdown
-              onOpenDrawer={() => setSubmeterDrawerOpen(true)}
-              showToast={showToast}
-              activeKw={activeKw}
-            />
-          </div>
-
-          {/* Grid Event "What-If" Simulator */}
-          <WhatIfSimulator
-            reductionTarget={reductionTarget}
-            onTargetChange={setReductionTarget}
-            duration={duration}
-            onDurationChange={setDuration}
-            subsystems={subsystems}
-            onSubsystemChange={setSubsystems}
-            onReset={handleResetSimulator}
-            onOpenDispatchModal={() => setDispatchModalOpen(true)}
-            showToast={showToast}
-            basePeakKw={kpi.predPeakKw}
-          />
-
-          {/* Impact Verification & Immutable Audit Logs */}
-          <ImpactVerification logs={auditLogs} showToast={showToast} />
-
-          {/* Developer Debug Bar */}
-          <DeveloperDrawer activeBuilding={activeBuilding} />
-        </div>
-      </main>
-
-      {/* Slide-Over Drawer: All 32 Submeters */}
-      <SubmeterDrawerModal
-        isOpen={submeterDrawerOpen}
-        onClose={() => setSubmeterDrawerOpen(false)}
-        activeBuilding={activeBuilding}
-      />
-
-      {/* Occupant View Preview Modal */}
-      <OccupantModal
-        isOpen={occupantModalOpen}
-        onClose={() => {
-          setOccupantModalOpen(false);
-          setActiveRole('FM');
-        }}
-        showToast={showToast}
-      />
-
-      {/* Dispatch Staging Confirmation Dialog */}
-      <DispatchConfirmationModal
-        isOpen={dispatchModalOpen}
-        onClose={() => setDispatchModalOpen(false)}
-        reductionTarget={reductionTarget}
-        duration={duration}
-        onConfirmDispatch={handleConfirmDispatch}
-      />
-
-      {/* Reactive Toast Notification Shelf */}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    <div className="flex items-center gap-2">
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${inverse ? 'bg-white text-primary' : 'bg-on-surface text-primary'}`}>
+        ⚡
+      </div>
+      <span className={`text-xl font-bold tracking-tight ${inverse ? 'text-white' : 'text-on-surface'}`}>
+        ENER<span className={inverse ? 'text-emerald-300' : 'text-primary'}>SENSE</span>
+      </span>
     </div>
   );
+}
+
+function WelcomeScreen({
+  onContinue,
+}: {
+  onContinue: (role: AccountRole) => void;
+}) {
+  return (
+    <main className="min-h-screen bg-surface px-4 py-8 sm:px-8 sm:py-12 flex items-center justify-center">
+      <div className="w-full max-w-5xl">
+        <header className="flex justify-center mb-10 sm:mb-14">
+          <Logo />
+        </header>
+        <div className="text-center max-w-3xl mx-auto">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+            Building energy intelligence
+          </span>
+          <h1 className="mt-5 text-3xl sm:text-5xl font-bold tracking-tight text-on-surface">
+            Energy intelligence for smarter buildings.
+          </h1>
+          <p className="mt-4 text-sm sm:text-base text-outline max-w-2xl mx-auto">
+            Understand your building&apos;s energy, respond to peaks, and make better everyday decisions.
+          </p>
+          <p className="mt-8 text-xs font-bold uppercase tracking-[0.16em] text-outline">
+            Continue as
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-5">
+          <article className="bg-surface-container-lowest border border-surface-container-high rounded-2xl p-5 sm:p-7 shadow-sm flex flex-col">
+            <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[24px]">domain</span>
+            </div>
+            <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+              Facility Manager
+            </p>
+            <h2 className="mt-1 text-xl font-bold text-on-surface">Manage building intelligence</h2>
+            <p className="mt-2 text-sm text-outline flex-1">
+              Monitor building demand, peaks, flexibility and energy intelligence.
+            </p>
+            <button
+              type="button"
+              className="mt-6 min-h-12 w-full rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary-container transition-colors"
+              onClick={() => onContinue('manager')}
+            >
+              Continue as Facility Manager
+              <span className="material-symbols-outlined align-middle text-[18px] ml-2">arrow_forward</span>
+            </button>
+          </article>
+
+          <article className="bg-surface-container-lowest border border-surface-container-high rounded-2xl p-5 sm:p-7 shadow-sm flex flex-col">
+            <div className="w-11 h-11 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[24px]">home</span>
+            </div>
+            <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">
+              Occupant / Owner
+            </p>
+            <h2 className="mt-1 text-xl font-bold text-on-surface">Understand your home&apos;s energy context</h2>
+            <p className="mt-2 text-sm text-outline flex-1">
+              Get building-level energy insights, recommendations and peak alerts for your home.
+            </p>
+            <button
+              type="button"
+              className="mt-6 min-h-12 w-full rounded-xl border border-surface-container-high bg-surface-container-low text-on-surface text-sm font-bold hover:bg-surface-container transition-colors"
+              onClick={() => onContinue('occupant')}
+            >
+              Continue as Occupant / Owner
+              <span className="material-symbols-outlined align-middle text-[18px] ml-2">arrow_forward</span>
+            </button>
+          </article>
+        </div>
+
+        <p className="mt-6 text-center text-[11px] text-outline">
+          MVP Demo · No production authentication is configured
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function EntryForm({
+  role,
+  buildingHint,
+  onBack,
+  onSubmit,
+}: {
+  role: AccountRole;
+  buildingHint: string;
+  onBack: () => void;
+  onSubmit: (profile: ManagerProfile | OccupantProfile) => void;
+}) {
+  const isManager = role === 'manager';
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [identity, setIdentity] = useState('');
+  const [building, setBuilding] = useState(buildingHint);
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [residentType, setResidentType] = useState('');
+  const [notificationPreference, setNotificationPreference] = useState('');
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isManager) {
+      onSubmit({
+        name: name.trim(),
+        workEmail: email.trim(),
+        managerId: identity.trim(),
+        facility: (building || buildingHint).trim(),
+        phone: phone.trim(),
+      });
+      return;
+    }
+    onSubmit({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      building: (building || buildingHint).trim(),
+      flatNumber: identity.trim(),
+      residentType,
+      notificationPreference,
+    });
+  };
+
+  const inputClass = 'w-full min-h-11 px-3 rounded-lg bg-white border border-surface-container-high text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary';
+
+  return (
+    <main className="min-h-screen bg-surface px-4 py-8 sm:px-8 flex items-center justify-center">
+      <div className="w-full max-w-xl">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-6 inline-flex items-center gap-1 text-xs font-semibold text-outline hover:text-on-surface"
+        >
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          Back
+        </button>
+
+        <section className="bg-surface-container-lowest border border-surface-container-high rounded-2xl p-5 sm:p-8 shadow-sm">
+          <Logo />
+          <div className="mt-6">
+            <span className="inline-flex px-2.5 py-1 rounded-full bg-tertiary-fixed text-tertiary text-[10px] font-bold uppercase tracking-wider">
+              MVP Demo
+            </span>
+            <h1 className="mt-3 text-2xl font-bold text-on-surface">
+              {isManager ? 'Facility Manager sign-in' : 'Occupant / Owner sign-in'}
+            </h1>
+            <p className="mt-2 text-xs text-outline">
+              Demo profile only. This form does not authenticate against a production identity service.
+            </p>
+          </div>
+
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            <label className="block text-xs font-semibold text-on-surface">
+              Full Name
+              <input className={`${inputClass} mt-1.5`} value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required />
+            </label>
+
+            <label className="block text-xs font-semibold text-on-surface">
+              {isManager ? 'Work Email' : 'Email Address'}
+              <input className={`${inputClass} mt-1.5`} type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {isManager ? (
+                <label className="block text-xs font-semibold text-on-surface">
+                  Employee / Manager ID
+                  <input className={`${inputClass} mt-1.5`} value={identity} onChange={(event) => setIdentity(event.target.value)} required />
+                </label>
+              ) : (
+                <label className="block text-xs font-semibold text-on-surface">
+                  Flat / Apartment Number
+                  <input className={`${inputClass} mt-1.5`} value={identity} onChange={(event) => setIdentity(event.target.value)} autoComplete="address-line2" required />
+                </label>
+              )}
+              <label className="block text-xs font-semibold text-on-surface">
+                Phone Number
+                <input className={`${inputClass} mt-1.5`} type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="tel" required />
+              </label>
+            </div>
+
+            <label className="block text-xs font-semibold text-on-surface">
+              {isManager ? 'Facility / Building' : 'Building'}
+              <input className={`${inputClass} mt-1.5`} value={building || buildingHint} onChange={(event) => setBuilding(event.target.value)} autoComplete="organization" required />
+              {buildingHint && (
+                <span className="block mt-1 text-[10px] font-normal text-outline">
+                  Backend building context: {buildingHint}
+                </span>
+              )}
+            </label>
+
+            {!isManager && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block text-xs font-semibold text-on-surface">
+                  Owner / Tenant (optional)
+                  <select className={`${inputClass} mt-1.5`} value={residentType} onChange={(event) => setResidentType(event.target.value)}>
+                    <option value="">Select if you wish</option>
+                    <option value="Owner">Owner</option>
+                    <option value="Tenant">Tenant</option>
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-on-surface">
+                  Preferred notification (optional)
+                  <select className={`${inputClass} mt-1.5`} value={notificationPreference} onChange={(event) => setNotificationPreference(event.target.value)}>
+                    <option value="">No preference</option>
+                    <option value="Email">Email</option>
+                    <option value="SMS">SMS</option>
+                  </select>
+                </label>
+              </div>
+            )}
+
+            <label className="block text-xs font-semibold text-on-surface">
+              Password
+              <input className={`${inputClass} mt-1.5`} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required minLength={6} />
+              <span className="block mt-1 text-[10px] font-normal text-outline">
+                Demo-only input; password is not saved or verified.
+              </span>
+            </label>
+
+            <button type="submit" className="w-full min-h-12 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary-container transition-colors">
+              Continue
+            </button>
+          </form>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+export default function HomePage() {
+  const [hydrated, setHydrated] = useState(false);
+  const [screen, setScreen] = useState<Screen>('welcome');
+  const [role, setRole] = useState<AccountRole>('manager');
+  const [managerProfile, setManagerProfile] = useState<ManagerProfile | null>(null);
+  const [occupantProfile, setOccupantProfile] = useState<OccupantProfile | null>(null);
+  const [buildingHint, setBuildingHint] = useState('');
+
+  useEffect(() => {
+    const hydrationTimer = window.setTimeout(() => {
+      const stored = readStoredSession();
+      if (stored) {
+        setManagerProfile(stored.manager);
+        setOccupantProfile(stored.occupant);
+        setRole(stored.role);
+        setScreen('dashboard');
+      }
+      setHydrated(true);
+    }, 0);
+
+    void getReplayStatus()
+      .then((status) => setBuildingHint(status.building))
+      .catch(() => setBuildingHint(''));
+    return () => window.clearTimeout(hydrationTimer);
+  }, []);
+
+  const persistSession = (
+    nextRole: AccountRole,
+    manager: ManagerProfile | null,
+    occupant: OccupantProfile | null,
+  ) => {
+    window.localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ role: nextRole, manager, occupant } satisfies StoredSession),
+    );
+    setManagerProfile(manager);
+    setOccupantProfile(occupant);
+    setRole(nextRole);
+    setScreen('dashboard');
+  };
+
+  const requestRole = (requestedRole: AccountRole) => {
+    const profile = requestedRole === 'manager' ? managerProfile : occupantProfile;
+    if (profile) {
+      const session: StoredSession = {
+        role: requestedRole,
+        manager: managerProfile,
+        occupant: occupantProfile,
+      };
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      setRole(requestedRole);
+      setScreen('dashboard');
+      return;
+    }
+    setRole(requestedRole);
+    setScreen(requestedRole === 'manager' ? 'manager-form' : 'occupant-form');
+  };
+
+  const handleEntry = (profile: ManagerProfile | OccupantProfile) => {
+    if (role === 'manager' && isManagerProfile(profile)) {
+      persistSession('manager', profile, occupantProfile);
+      return;
+    }
+    if (role === 'occupant' && isOccupantProfile(profile)) {
+      persistSession('occupant', managerProfile, profile);
+    }
+  };
+
+  const logout = () => {
+    window.localStorage.removeItem(SESSION_KEY);
+    setManagerProfile(null);
+    setOccupantProfile(null);
+    setScreen('welcome');
+    setRole('manager');
+  };
+
+  if (!hydrated) {
+    return <main className="min-h-screen bg-surface flex items-center justify-center text-sm text-outline">Loading ENERSENSE…</main>;
+  }
+
+  if (screen === 'welcome') {
+    return <WelcomeScreen onContinue={requestRole} />;
+  }
+
+  if (screen === 'manager-form' || screen === 'occupant-form') {
+    const formRole = screen === 'manager-form' ? 'manager' : 'occupant';
+    return (
+      <EntryForm
+        key={formRole}
+        role={formRole}
+        buildingHint={buildingHint}
+        onBack={() => setScreen('welcome')}
+        onSubmit={handleEntry}
+      />
+    );
+  }
+
+  if (role === 'manager' && managerProfile) {
+    return (
+      <FacilityManagerDashboard
+        managerName={managerProfile.name}
+        onSwitchRole={requestRole}
+        onLogout={logout}
+      />
+    );
+  }
+
+  if (role === 'occupant' && occupantProfile) {
+    return (
+      <OccupantDashboard
+        profile={occupantProfile}
+        onSwitchRole={requestRole}
+        onLogout={logout}
+      />
+    );
+  }
+
+  return <WelcomeScreen onContinue={requestRole} />;
 }

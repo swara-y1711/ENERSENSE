@@ -2,9 +2,12 @@
 
 import React from 'react';
 import { BuildingOption } from '../data/facilityData';
+import { ReplayContext } from '../lib/api';
 
 interface BreadcrumbBarProps {
-  activeBuilding: BuildingOption;
+  activeBuilding: BuildingOption | null;
+  replay: ReplayContext | null;
+  backendUnavailable: boolean;
   timeframe: string;
   onSelectTimeframe: (tf: string, label: string) => void;
   showToast: (msg: string, type?: 'info' | 'success') => void;
@@ -12,6 +15,8 @@ interface BreadcrumbBarProps {
 
 export default function BreadcrumbBar({
   activeBuilding,
+  replay,
+  backendUnavailable,
   timeframe,
   onSelectTimeframe,
   showToast,
@@ -27,21 +32,26 @@ export default function BreadcrumbBar({
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-surface-container-lowest/60 p-3 rounded-xl border border-surface-container-high/60 sm:bg-transparent sm:p-0 sm:border-0">
       {/* Breadcrumbs */}
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-outline font-medium">
-        <span>Facilities</span>
-        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-        <span>Bengaluru Tech Zone</span>
-        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
         <span className="font-bold text-on-surface truncate">
-          {activeBuilding.name}
+          {backendUnavailable ? 'Backend unavailable' : activeBuilding?.name ?? 'Awaiting backend data'}
         </span>
-        <span
-          className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[10px] font-semibold cursor-pointer shrink-0 hover:bg-primary/20 transition-colors"
-          onClick={() =>
-            showToast('Sensors healthy: 142 BACnet/IP nodes connected.', 'success')
-          }
-        >
-          SENSORS (142/142)
+        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[10px] font-semibold shrink-0">
+          Source: {replay?.source ?? 'Not available'}
         </span>
+        <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-outline font-mono text-[10px] font-semibold shrink-0">
+          Mode: {replay?.mode === 'historical_replay' ? 'Historical Replay' : replay?.mode ?? 'Not available'}
+        </span>
+        {replay?.weather && (
+          <span className="shrink-0">
+            Weather: {replay.weather.temperature_c ?? 'Not available'}°C · RH{' '}
+            {replay.weather.relative_humidity_percent ?? 'Not available'}%
+          </span>
+        )}
+        {replay?.tariff && (
+          <span className="shrink-0">
+            Tariff: {replay.tariff.period ?? 'Not available'}
+          </span>
+        )}
       </div>
 
       {/* Controls: Timeframe Pills & Action Buttons */}
@@ -57,7 +67,12 @@ export default function BreadcrumbBar({
                     ? 'font-semibold bg-primary text-on-primary shadow-xs'
                     : 'font-medium text-outline hover:text-on-surface'
                 }`}
-                onClick={() => onSelectTimeframe(tf.id, tf.label)}
+                onClick={() => {
+                  onSelectTimeframe(tf.id, tf.label);
+                  if (tf.id !== 'live') {
+                    showToast('Only the active historical replay interval is available from the backend.');
+                  }
+                }}
               >
                 {tf.label}
               </button>
@@ -76,8 +91,8 @@ export default function BreadcrumbBar({
         </button>
 
         <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 bg-surface-container-lowest rounded-lg border border-surface-container-high text-xs font-mono text-outline">
-          <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
-          <span className="text-[11px]">200ms</span>
+          <span className={`h-2 w-2 rounded-full ${backendUnavailable ? 'bg-error' : 'bg-primary animate-pulse'}`}></span>
+          <span className="text-[11px]">{backendUnavailable ? 'Offline' : 'Replay active'}</span>
         </div>
       </div>
     </div>

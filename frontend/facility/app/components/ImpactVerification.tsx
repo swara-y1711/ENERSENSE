@@ -1,17 +1,22 @@
 'use client';
 
 import React from 'react';
-import { AuditLogItem } from '../data/facilityData';
+import { ImpactCurrent } from '../lib/api';
 
 interface ImpactVerificationProps {
-  logs: AuditLogItem[];
+  impact: ImpactCurrent | null;
   showToast: (msg: string, type?: 'info' | 'success') => void;
 }
 
 export default function ImpactVerification({
-  logs,
+  impact,
   showToast,
 }: ImpactVerificationProps) {
+  const formatValue = (value: number | null | undefined, unit: string) =>
+    typeof value === 'number'
+      ? `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`
+      : 'Not available';
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
       {/* Verification Summary (4 Cols on desktop, 12 on mobile/tablet) */}
@@ -22,46 +27,40 @@ export default function ImpactVerification({
               verified
             </span>
             <h3 className="text-sm font-bold text-on-surface">
-              Verification &amp; Governance
+              Replay Impact Context
             </h3>
           </div>
           <p className="text-xs text-outline">
-            Backtested 30-day verified curtailment telemetry audited against BESCOM utility metering.
+            Backend-reported historical replay and what-if impact metrics. Estimates are not measured savings or dispatched load.
           </p>
 
           <div className="space-y-2 pt-2">
             <div
-              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container transition-colors"
-              onClick={() => showToast('Total curtailment sessions: 28 events recorded.')}
+              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs"
             >
-              <span className="text-outline">Total Load Shifted</span>
-              <span className="font-mono font-bold">18.4 MWh</span>
+              <span className="text-outline">Potential Reduction</span>
+              <span className="font-mono font-bold">{formatValue(impact?.potential_reduction_kw, 'kW')}</span>
             </div>
 
             <div
-              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container transition-colors"
-              onClick={() => showToast('Tariff savings credited in billing cycle #9928.')}
+              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs"
             >
-              <span className="text-outline">Verified Tariff Savings</span>
-              <span className="font-mono font-bold text-primary">₹1,84,200</span>
+              <span className="text-outline">Estimated Energy Impact</span>
+              <span className="font-mono font-bold text-primary">{formatValue(impact?.estimated_energy_impact_kwh, 'kWh')}</span>
             </div>
 
             <div
-              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container transition-colors"
-              onClick={() => showToast('ASHRAE Standard 55 thermal comfort compliance upheld.')}
+              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs"
             >
-              <span className="text-outline">Occupant Comfort SLA</span>
-              <span className="font-mono font-bold text-secondary">
-                99.4% Compliant
-              </span>
+              <span className="text-outline">Historical Baseline Demand</span>
+              <span className="font-mono font-bold text-secondary">{formatValue(impact?.baseline_demand_kw, 'kW')}</span>
             </div>
 
             <div
-              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container transition-colors"
-              onClick={() => showToast('Mean latency from ISO openADR dispatch signal to relay actuation.')}
+              className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs"
             >
-              <span className="text-outline">Mean Response Time</span>
-              <span className="font-mono font-bold">4m 12s</span>
+              <span className="text-outline">Impact Method</span>
+              <span className="font-mono font-bold">{impact?.method ?? 'Awaiting model data'}</span>
             </div>
           </div>
         </div>
@@ -72,10 +71,10 @@ export default function ImpactVerification({
           </span>
           <div>
             <span className="text-xs font-bold text-on-surface block">
-              Utility Grid Interconnect SLA
+              Backend Notice
             </span>
             <span className="text-[10px] text-outline">
-              Demand response settlement grade: A+
+              {impact?.notice ?? 'Awaiting model data'}
             </span>
           </div>
         </div>
@@ -87,14 +86,14 @@ export default function ImpactVerification({
           <div className="flex items-center justify-between mb-3 gap-2">
             <div>
               <h3 className="text-sm font-bold text-on-surface">
-                Recent Dispatch Verification Logs
+                Replay Verification Records
               </h3>
               <p className="text-xs text-outline">
-                Cryptographically hashed settlement events sent to ISO dispatch
+                Dispatch and settlement logs are not provided by the replay API.
               </p>
             </div>
             <span className="px-2 py-0.5 bg-surface-container-high rounded text-[10px] font-mono text-outline uppercase font-semibold shrink-0">
-              Immutable Trail
+              No dispatch logs
             </span>
           </div>
 
@@ -111,49 +110,23 @@ export default function ImpactVerification({
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-high font-mono">
-                {logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="hover:bg-surface-container-low transition-colors cursor-pointer"
-                    onClick={() => showToast(log.toastNote)}
-                  >
-                    <td className="py-2.5 px-3 font-bold text-on-surface">
-                      {log.id}
-                    </td>
-                    <td className="py-2.5 px-3 text-outline">{log.window}</td>
-                    <td className="py-2.5 px-3">
-                      {log.committedKw.toFixed(1)} kW
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-primary">
-                      {typeof log.deliveredKw === 'number'
-                        ? `${log.deliveredKw.toFixed(1)} kW`
-                        : log.deliveredKw}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
-                        {log.compliancePct}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-primary flex items-center gap-1 font-sans text-xs">
-                      <span className="material-symbols-outlined text-[14px]">
-                        {log.icon}
-                      </span>
-                      {log.statusNote}
-                    </td>
-                  </tr>
-                ))}
+                <tr>
+                  <td colSpan={6} className="py-8 px-3 text-center text-outline">
+                    No dispatch verification records are available.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-surface-container-high text-xs text-outline">
-          <span>Showing recent historical dispatch audits</span>
+          <span>Source: I-BLEND historical replay</span>
           <button
             className="text-primary font-bold hover:underline text-left sm:text-right cursor-pointer"
-            onClick={() => showToast('Compiling comprehensive ISO verification PDF...', 'success')}
+            onClick={() => showToast('Audit export is not available from the replay API.')}
           >
-            Download Verification PDF
+            Audit export unavailable
           </button>
         </div>
       </div>

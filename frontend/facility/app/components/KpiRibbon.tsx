@@ -1,16 +1,35 @@
 'use client';
 
 import React from 'react';
-import { KpiMetrics } from '../data/facilityData';
+import {
+  FlexibilityCurrent,
+  ForecastCurrent,
+  PeakCurrent,
+  Recommendation,
+  ReplayRecord,
+} from '../lib/api';
 
 interface KpiRibbonProps {
-  kpi: KpiMetrics;
-  activeKw: number;
+  replay: ReplayRecord | null;
+  forecast: ForecastCurrent | null;
+  peak: PeakCurrent | null;
+  flexibility: FlexibilityCurrent | null;
+  recommendations: Recommendation[];
 }
 
-export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
-  const capPct = Math.min(100, Math.round((activeKw / kpi.transformerCapKw) * 100));
+function formatMetric(value: number | null | undefined): string {
+  return typeof value === 'number'
+    ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : 'Awaiting model data';
+}
 
+export default function KpiRibbon({
+  replay,
+  forecast,
+  peak,
+  flexibility,
+  recommendations,
+}: KpiRibbonProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {/* 1. Today's Cumulative */}
@@ -20,21 +39,20 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
             Today&apos;s Cumulative
           </span>
           <span className="text-xs font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10">
-            {kpi.cumDelta}
+            Not available
           </span>
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-on-surface">
-            {kpi.cumulativeKwh.toLocaleString('en-US')}
+            Not available
           </span>
-          <span className="text-xs font-mono text-outline ml-1">kWh</span>
         </div>
         <div className="text-[11px] text-outline flex justify-between gap-1">
           <span className="truncate">
-            Baseline: {kpi.baselineKwh.toLocaleString('en-US')} kWh
+            Baseline: Not available
           </span>
           <span className="text-primary font-medium shrink-0">
-            {kpi.underMaxPct} under max
+            No cumulative energy endpoint
           </span>
         </div>
       </div>
@@ -46,75 +64,78 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
             Active Telemetry Load
           </span>
           <span className="text-xs font-medium text-secondary px-1.5 py-0.5 rounded bg-surface-container-high">
-            Normal Load
+            {replay?.source ?? 'Backend unavailable'}
           </span>
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-on-surface">
-            {activeKw}
+            {formatMetric(replay?.demand_kw)}
           </span>
-          <span className="text-xs font-mono text-outline ml-1">kW</span>
+          {typeof replay?.demand_kw === 'number' && (
+            <span className="text-xs font-mono text-outline ml-1">kW</span>
+          )}
         </div>
-        <div>
-          <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mb-1">
-            <div
-              className="h-full bg-secondary transition-all duration-500"
-              style={{ width: `${capPct}%` }}
-            ></div>
-          </div>
-          <div className="text-[11px] text-outline flex justify-between gap-1">
-            <span className="truncate">{capPct}% Transformer Cap</span>
-            <span className="shrink-0">{kpi.transformerCapKw} kW Max</span>
-          </div>
+        <div className="text-[11px] text-outline flex justify-between gap-1">
+          <span className="truncate">
+            {replay?.timestamp ?? 'Not available'}
+          </span>
+          <span className="shrink-0">I-BLEND</span>
         </div>
       </div>
 
-      {/* 3. Predicted Peak */}
+      {/* 3. Forecast and Peak Status */}
       <div className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <span className="text-xs font-mono uppercase text-outline">
-            Predicted Unmitigated Peak
+            Forecasted Demand
           </span>
           <span className="text-xs font-bold text-tertiary px-1.5 py-0.5 rounded bg-tertiary-fixed">
-            Grid Alert
+            {peak?.peak_status ?? 'Peak status unavailable'}
           </span>
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-tertiary">
-            {kpi.predPeakKw}
+            {formatMetric(forecast?.predicted_demand_kw ?? peak?.predicted_demand_kw)}
           </span>
-          <span className="text-xs font-mono text-outline ml-1">kW</span>
+          {(typeof forecast?.predicted_demand_kw === 'number' ||
+            typeof peak?.predicted_demand_kw === 'number') && (
+            <span className="text-xs font-mono text-outline ml-1">kW</span>
+          )}
         </div>
         <div className="text-[11px] text-outline flex justify-between gap-1">
           <span className="font-bold text-tertiary truncate">
-            Window: {kpi.peakWindow}
+            Status: {peak?.peak_status ?? 'Awaiting model data'}
           </span>
           <span className="text-error font-medium shrink-0">
-            +{kpi.peakDeltaKw} kW delta
+            {peak?.is_predicted_peak ? 'Predicted peak' : peak ? 'Below peak' : 'Not available'}
           </span>
         </div>
       </div>
 
-      {/* 4. Flexible Capacity */}
+      {/* 4. Flexible Demand and Recommendation */}
       <div className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <span className="text-xs font-mono uppercase text-outline">
-            Flexible Shed Capacity
+            Potential Flexible Demand
           </span>
           <span className="text-xs font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10">
-            Ready to Shed
+            Estimate only
           </span>
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-primary">
-            {kpi.flexibleShedCapKw}
+            {formatMetric(flexibility?.potential_flexible_kw)}
           </span>
-          <span className="text-xs font-mono text-outline ml-1">kW</span>
+          {typeof flexibility?.potential_flexible_kw === 'number' && (
+            <span className="text-xs font-mono text-outline ml-1">kW</span>
+          )}
         </div>
         <div className="text-[11px] text-outline flex justify-between gap-1">
-          <span className="truncate">Thermal + EV priority</span>
+          <span className="truncate">
+            {recommendations[0]?.action ?? 'Awaiting model data'}
+          </span>
           <span className="text-primary font-bold shrink-0">
-            {kpi.flexPct} load flex
+            {recommendations[0]?.priority ?? 'Not available'}
           </span>
         </div>
       </div>

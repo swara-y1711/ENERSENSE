@@ -1,35 +1,45 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BUILDINGS, BuildingOption, NOTIFICATIONS, NotificationItem } from '../data/facilityData';
+import { BuildingOption } from '../data/facilityData';
+import { Recommendation } from '../lib/api';
 
 interface HeaderProps {
-  activeBuilding: BuildingOption;
-  onSelectBuilding: (bldg: BuildingOption) => void;
+  activeBuilding: BuildingOption | null;
+  source: string | null;
+  mode: string | null;
+  recommendations: Recommendation[];
   onOpenMobileSidebar: () => void;
-  onOpenOccupantModal: () => void;
+  onSwitchRole: (role: 'manager' | 'occupant') => void;
+  onLogout: () => void;
+  operatorName: string;
   showToast: (msg: string, type?: 'info' | 'success') => void;
   activeRole: 'FM' | 'Occupant';
-  onSelectRole: (role: 'FM' | 'Occupant') => void;
 }
 
 export default function Header({
   activeBuilding,
-  onSelectBuilding,
+  source,
+  mode,
+  recommendations,
   onOpenMobileSidebar,
-  onOpenOccupantModal,
+  onSwitchRole,
+  onLogout,
+  operatorName,
   showToast,
   activeRole,
-  onSelectRole,
 }: HeaderProps) {
   const [bldgMenuOpen, setBldgMenuOpen] = useState(false);
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(NOTIFICATIONS);
+  const [dismissedRecommendations, setDismissedRecommendations] = useState<string[]>([]);
+  const visibleRecommendations = recommendations.filter(
+    (recommendation) => !dismissedRecommendations.includes(recommendation.recommendation_id),
+  );
 
   const handleClearNotifications = () => {
-    setNotifications([]);
+    setDismissedRecommendations(recommendations.map((item) => item.recommendation_id));
     setNotifMenuOpen(false);
-    showToast('All notifications marked as read.', 'success');
+    showToast('Recommendations marked as read.', 'success');
   };
 
   return (
@@ -69,7 +79,7 @@ export default function Header({
             <span className="material-symbols-outlined text-[16px] sm:text-[18px] text-primary shrink-0">
               apartment
             </span>
-            <span className="truncate">{activeBuilding.shortName}</span>
+            <span className="truncate">{activeBuilding?.shortName ?? 'Awaiting backend data'}</span>
             <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
               {bldgMenuOpen ? 'expand_less' : 'expand_more'}
             </span>
@@ -77,29 +87,17 @@ export default function Header({
 
           {bldgMenuOpen && (
             <div className="absolute top-full left-0 mt-1.5 w-64 sm:w-72 bg-surface-container-lowest rounded-xl shadow-xl border border-surface-container-high p-2 z-50">
-              {BUILDINGS.map((bldg) => {
-                const isActive = bldg.id === activeBuilding.id;
-                return (
-                  <button
-                    key={bldg.id}
-                    className={`w-full text-left p-2 rounded-lg text-xs sm:text-sm flex justify-between items-center transition-colors cursor-pointer ${
-                      isActive
-                        ? 'bg-primary/10 text-primary font-semibold'
-                        : 'hover:bg-surface-container text-on-surface font-medium'
-                    }`}
-                    onClick={() => {
-                      onSelectBuilding(bldg);
-                      setBldgMenuOpen(false);
-                      showToast(`Switched active facility to ${bldg.name}`);
-                    }}
-                  >
-                    <span className="truncate">{bldg.shortName}</span>
-                    <span className="font-mono text-xs shrink-0 ml-2">
-                      {bldg.currentKw} kW
-                    </span>
-                  </button>
-                );
-              })}
+              <div className="p-2 text-xs sm:text-sm">
+                <div className="font-semibold text-on-surface">
+                  {activeBuilding?.name ?? 'Awaiting backend data'}
+                </div>
+                <div className="mt-1 text-[10px] text-outline">
+                  Source: {source ?? 'Not available'}
+                </div>
+                <div className="text-[10px] text-outline">
+                  Mode: {mode ?? 'Not available'}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -107,10 +105,10 @@ export default function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-        {/* Grid Stress Banner */}
+        {/* Replay Provenance */}
         <div className="hidden xl:flex items-center gap-2 px-3 py-1 bg-tertiary-fixed/40 rounded-lg text-xs font-semibold text-tertiary">
-          <span className="h-2 w-2 rounded-full bg-tertiary animate-ping"></span>
-          <span>GRID STRESS: MODERATE • PEAK WINDOW IN 2H</span>
+          <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+          <span>{source ?? 'Backend unavailable'} · {mode ?? 'Not available'}</span>
         </div>
 
         {/* Role Switcher */}
@@ -122,8 +120,7 @@ export default function Header({
                 : 'font-medium text-outline hover:text-on-surface'
             }`}
             onClick={() => {
-              onSelectRole('FM');
-              showToast('Switched to Facility Manager view');
+              onSwitchRole('manager');
             }}
           >
             FM
@@ -135,8 +132,7 @@ export default function Header({
                 : 'font-medium text-outline hover:text-on-surface'
             }`}
             onClick={() => {
-              onSelectRole('Occupant');
-              onOpenOccupantModal();
+              onSwitchRole('occupant');
             }}
           >
             <span>Occupant</span>
@@ -154,7 +150,7 @@ export default function Header({
             <span className="material-symbols-outlined text-[20px]">
               notifications
             </span>
-            {notifications.length > 0 && (
+            {visibleRecommendations.length > 0 && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-error"></span>
             )}
           </button>
@@ -163,9 +159,9 @@ export default function Header({
             <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-container-high p-3 z-50">
               <div className="flex items-center justify-between pb-2 border-b border-surface-container-high">
                 <span className="text-xs uppercase font-bold text-on-surface">
-                  Grid Alerts ({notifications.length})
+                  Recommendations ({visibleRecommendations.length})
                 </span>
-                {notifications.length > 0 && (
+                {visibleRecommendations.length > 0 && (
                   <button
                     className="text-xs text-primary font-medium hover:underline cursor-pointer"
                     onClick={handleClearNotifications}
@@ -175,28 +171,25 @@ export default function Header({
                 )}
               </div>
               <div className="mt-2 space-y-2 text-xs">
-                {notifications.length === 0 ? (
-                  <div className="p-2 text-outline text-center">No unread notifications</div>
+                {visibleRecommendations.length === 0 ? (
+                  <div className="p-2 text-outline text-center">
+                    {recommendations.length === 0
+                      ? 'Awaiting model data'
+                      : 'No unread recommendations'}
+                  </div>
                 ) : (
-                  notifications.map((notif) => (
+                  visibleRecommendations.map((recommendation) => (
                     <div
-                      key={notif.id}
-                      className={`p-2 rounded-lg border-l-2 ${
-                        notif.type === 'alert'
-                          ? 'bg-tertiary-fixed/30 border-tertiary'
-                          : 'bg-primary/10 border-primary'
-                      }`}
+                      key={recommendation.recommendation_id}
+                      className="p-2 rounded-lg border-l-2 bg-primary/10 border-primary"
                     >
-                      <span
-                        className={`font-bold block ${
-                          notif.type === 'alert' ? 'text-tertiary' : 'text-primary'
-                        }`}
-                      >
-                        {notif.title}
+                      <span className="font-bold block text-primary">
+                        {recommendation.priority} · {recommendation.audience}
                       </span>
                       <span className="text-on-surface-variant">
-                        {notif.message}
+                        {recommendation.action}
                       </span>
+                      <span className="block text-outline">{recommendation.reason}</span>
                     </div>
                   ))
                 )}
@@ -208,13 +201,23 @@ export default function Header({
         {/* User Avatar */}
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs shrink-0">
-            MV
+            {operatorName.slice(0, 2).toUpperCase() || 'FM'}
           </div>
           <div className="hidden lg:block text-left">
-            <div className="text-xs font-semibold leading-tight">Marcus Vance</div>
-            <div className="text-[10px] text-outline">Lead Facility Eng.</div>
+            <div className="text-xs font-semibold leading-tight">{operatorName}</div>
+            <div className="text-[10px] text-outline">Facility Manager</div>
           </div>
         </div>
+        <button
+          type="button"
+          aria-label="Log out"
+          title="Log out"
+          className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1.5 text-[11px] font-semibold text-outline hover:text-on-surface cursor-pointer"
+          onClick={onLogout}
+        >
+          <span className="material-symbols-outlined text-[17px]">logout</span>
+          <span className="hidden md:inline">Log out</span>
+        </button>
       </div>
     </header>
   );
