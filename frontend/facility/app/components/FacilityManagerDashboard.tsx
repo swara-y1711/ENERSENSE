@@ -15,23 +15,12 @@ import FacilityViews from './FacilityViews';
 import ToastContainer, { ToastMessage } from './ToastContainer';
 
 import {
+  CompletedImpactSimulation,
   FlexibilityCurrent,
   ForecastCurrent,
   ExpectedPeak,
-  getFlexibilityCurrent,
-  getForecastCurrent,
-  getImpactCurrent,
-  getPeakCurrent,
-  getPeakExpected,
-  getRecommendationsCurrent,
-  getRecommendationsExpected,
-  getReplayContext,
-  getReplayCurrent,
+  getReplayDashboardSnapshot,
   getReplayNext,
-  getReplaySample,
-  getReplayStatus,
-  getTariffConfig,
-  getTariffCurrent,
   ImpactCurrent,
   PeakCurrent,
   Recommendation,
@@ -70,6 +59,8 @@ export default function FacilityManagerDashboard({
   const [expectedRecommendationBundle, setExpectedRecommendationBundle] =
     useState<RecommendationsCurrent | null>(null);
   const [impact, setImpact] = useState<ImpactCurrent | null>(null);
+  const [completedSimulation, setCompletedSimulation] =
+    useState<CompletedImpactSimulation | null>(null);
   const [tariff, setTariff] = useState<TariffCurrent | null>(null);
   const [tariffConfig, setTariffConfig] = useState<TariffConfig | null>(null);
   const [backendUnavailable, setBackendUnavailable] = useState(false);
@@ -111,65 +102,27 @@ export default function FacilityManagerDashboard({
         }
       }
 
-      const results = await Promise.allSettled([
-        getReplayCurrent(),
-        getReplayContext(),
-        getForecastCurrent(),
-        getPeakCurrent(),
-        getFlexibilityCurrent(),
-        getRecommendationsCurrent(),
-        getImpactCurrent(),
-        getReplayStatus(),
-        getPeakExpected(),
-        getRecommendationsExpected(),
-        getTariffCurrent(),
-        getTariffConfig(),
-      ]);
-      const sampleResults = advanceReplay
-        ? []
-        : await Promise.allSettled([getReplaySample()]);
+      try {
+        const snapshot = await getReplayDashboardSnapshot(!advanceReplay);
+        if (!isActive) return;
+        const current = snapshot.replay;
+        setBackendUnavailable(false);
+        setReplay(current);
+        setForecast(snapshot.forecast);
+        setPeak(snapshot.peak);
+        setFlexibility(snapshot.flexibility);
+        setRecommendationBundle(snapshot.recommendations);
+        setRecommendations(snapshot.recommendations?.recommendations ?? []);
+        setImpact(snapshot.impact);
+        setExpectedPeak(snapshot.expectedPeak);
+        setExpectedRecommendationBundle(snapshot.expectedRecommendations);
+        setTariff(snapshot.tariff);
+        setTariffConfig(snapshot.tariffConfig);
+        setReplayStatus(snapshot.replayStatus);
+        if (snapshot.records) setRecords(snapshot.records);
+        else if (!advanceReplay) setRecords([current]);
 
-      if (!isActive) return;
-
-      const currentResult = results[0];
-      const contextResult = results[1];
-      const current =
-        contextResult.status === 'fulfilled'
-          ? contextResult.value
-          : currentResult.status === 'fulfilled'
-            ? currentResult.value
-            : null;
-
-      setBackendUnavailable(current === null);
-      setReplay(current);
-      setForecast(results[2].status === 'fulfilled' ? results[2].value : null);
-      setPeak(results[3].status === 'fulfilled' ? results[3].value : null);
-      setFlexibility(results[4].status === 'fulfilled' ? results[4].value : null);
-      const currentRecommendations =
-        results[5].status === 'fulfilled' ? results[5].value : null;
-      setRecommendationBundle(currentRecommendations);
-      setRecommendations(currentRecommendations?.recommendations ?? []);
-      setImpact(results[6].status === 'fulfilled' ? results[6].value : null);
-      setExpectedPeak(results[8].status === 'fulfilled' ? results[8].value : null);
-      setExpectedRecommendationBundle(
-        results[9].status === 'fulfilled' ? results[9].value : null,
-      );
-      setTariff(results[10].status === 'fulfilled' ? results[10].value : null);
-      setTariffConfig(results[11].status === 'fulfilled' ? results[11].value : null);
-
-      const sampleResult = sampleResults[0];
-      if (sampleResult?.status === 'fulfilled') {
-        setRecords(sampleResult.value);
-      } else if (current) {
-        setRecords((previous) => (previous.length > 0 ? previous : [current]));
-      }
-
-      const statusResult = results[7];
-      if (statusResult?.status === 'fulfilled') {
-        setReplayStatus(statusResult.value);
-      }
-
-      if (advanceReplay && current) {
+        if (advanceReplay) {
         setRecords((previous) => {
           const lastRecord = previous[previous.length - 1];
           if (!lastRecord) return [current];
@@ -177,6 +130,14 @@ export default function FacilityManagerDashboard({
           if (current.timestamp === lastRecord.timestamp) return previous;
           return [...previous, current];
         });
+        }
+      } catch (error) {
+        if (isActive) {
+          setBackendUnavailable(true);
+          setReplayAdvanceError(
+            error instanceof Error ? error.message : 'Dashboard data unavailable.',
+          );
+        }
       }
     };
 
@@ -288,10 +249,15 @@ export default function FacilityManagerDashboard({
                 replay={replay}
                 flexibility={flexibility}
                 impact={impact}
+                onSimulationComplete={setCompletedSimulation}
                 showToast={showToast}
               />
 
-              <ImpactVerification impact={impact} showToast={showToast} />
+              <ImpactVerification
+                impact={impact}
+                simulation={completedSimulation}
+                showToast={showToast}
+              />
 
               <DeveloperDrawer
                 activeBuilding={activeBuilding}
@@ -313,6 +279,8 @@ export default function FacilityManagerDashboard({
               recommendations={recommendationBundle}
               expectedRecommendations={expectedRecommendationBundle}
               impact={impact}
+              simulation={completedSimulation}
+              onSimulationComplete={setCompletedSimulation}
               tariff={tariff}
               tariffConfig={tariffConfig}
               backendUnavailable={backendUnavailable}

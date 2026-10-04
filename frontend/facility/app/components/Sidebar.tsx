@@ -19,7 +19,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const operationsNav = [
     { name: 'Overview', icon: 'grid_view' },
-    { name: 'Live Telemetry', icon: 'electric_meter' },
+    { name: 'Historical Replay', icon: 'electric_meter' },
     { name: 'Demand Response', icon: 'bolt' },
     { name: 'Human Presence', icon: 'groups' },
     { name: 'HVAC Control', icon: 'thermostat' },

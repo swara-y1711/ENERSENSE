@@ -84,7 +84,7 @@ export default function DemandProfileChart({ records }: DemandProfileChartProps)
                 I-BLEND Historical Demand
               </h2>
               <span className="px-2 py-0.5 bg-surface-container-high rounded text-[10px] font-mono uppercase text-outline font-semibold">
-                15m Replay Records
+                15-MIN REPLAY INTERVAL
               </span>
             </div>
             <p className="text-xs text-outline mt-0.5">

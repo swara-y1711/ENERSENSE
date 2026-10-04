@@ -18,7 +18,7 @@ interface KpiRibbonProps {
 }
 
 function formatMetric(value: number | null | undefined): string {
-  return typeof value === 'number'
+  return typeof value === 'number' && Number.isFinite(value)
     ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
     : 'Awaiting model data';
 }
@@ -61,10 +61,10 @@ export default function KpiRibbon({
       <div className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <span className="text-xs font-mono uppercase text-outline">
-            Active Telemetry Load
+            CURRENT REPLAY LOAD
           </span>
           <span className="text-xs font-medium text-secondary px-1.5 py-0.5 rounded bg-surface-container-high">
-            {replay?.source ?? 'Backend unavailable'}
+            I-BLEND Historical Replay
           </span>
         </div>
         <div className="my-2">
@@ -107,7 +107,7 @@ export default function KpiRibbon({
             Status: {peak?.peak_status ?? 'Awaiting model data'}
           </span>
           <span className="text-error font-medium shrink-0">
-            {peak?.is_predicted_peak ? 'Predicted peak' : peak ? 'Below peak' : 'Not available'}
+            {peak?.peak_status?.replaceAll('_', ' ') ?? 'Not available'}
           </span>
         </div>
       </div>

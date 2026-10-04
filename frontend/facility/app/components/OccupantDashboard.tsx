@@ -13,17 +13,8 @@ import {
 import {
   FlexibilityCurrent,
   ForecastCurrent,
-  getFlexibilityCurrent,
-  getForecastCurrent,
-  getImpactCurrent,
-  getPeakCurrent,
-  getRecommendationsCurrent,
-  getRecommendationsExpected,
-  getReplayContext,
+  getReplayDashboardSnapshot,
   getReplayNext,
-  getReplaySample,
-  getReplayStatus,
-  getWeatherCurrent,
   ImpactCurrent,
   PeakCurrent,
   Recommendation,
@@ -46,7 +37,7 @@ interface OccupantDashboardProps {
 const POLL_INTERVAL_MS = 15_000;
 
 function numberText(value: number | null | undefined, unit: string): string {
-  return typeof value === 'number' && Number.isFinite(value)
+  return typeof value === 'number' && Number.isFinite(value) && Number.isFinite(value)
     ? `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`
     : 'Not available';
 }
@@ -217,43 +208,38 @@ export default function OccupantDashboard({
         }
       }
 
-      const results = await Promise.allSettled([
-        getReplayContext(),
-        getForecastCurrent(),
-        getPeakCurrent(),
-        getFlexibilityCurrent(),
-        getRecommendationsCurrent(),
-        getRecommendationsExpected(),
-        getImpactCurrent(),
-        getWeatherCurrent(),
-        getReplayStatus(),
-        ...(advance ? [] : [getReplaySample()]),
-      ]);
-      if (!isActive) return;
+      try {
+        const snapshot = await getReplayDashboardSnapshot(!advance);
+        if (!isActive) return;
+        const context = snapshot.replay;
+        setReplay(context);
+        setBackendUnavailable(false);
+        setForecast(snapshot.forecast);
+        setPeak(snapshot.peak);
+        setFlexibility(snapshot.flexibility);
+        setCurrentBundle(snapshot.recommendations);
+        setExpectedBundle(snapshot.expectedRecommendations);
+        setImpact(snapshot.impact);
+        setWeather(snapshot.weather);
+        setReplayStatus(snapshot.replayStatus);
 
-      const context = results[0].status === 'fulfilled' ? results[0].value : null;
-      setReplay(context);
-      setBackendUnavailable(context === null);
-      setForecast(results[1].status === 'fulfilled' ? results[1].value : null);
-      setPeak(results[2].status === 'fulfilled' ? results[2].value : null);
-      setFlexibility(results[3].status === 'fulfilled' ? results[3].value : null);
-      setCurrentBundle(results[4].status === 'fulfilled' ? results[4].value : null);
-      setExpectedBundle(results[5].status === 'fulfilled' ? results[5].value : null);
-      setImpact(results[6].status === 'fulfilled' ? results[6].value : null);
-      setWeather(results[7].status === 'fulfilled' ? results[7].value : null);
-      setReplayStatus(results[8].status === 'fulfilled' ? results[8].value : null);
-
-      if (!advance) {
-        const sampleResult = results[9];
-        if (sampleResult?.status === 'fulfilled') setRecords(sampleResult.value);
-        else if (context) setRecords([context]);
-      } else if (context) {
-        setRecords((previous) => {
-          const last = previous[previous.length - 1];
-          if (!last || context.timestamp < last.timestamp) return [context];
-          if (context.timestamp === last.timestamp) return previous;
-          return [...previous.slice(-47), context];
-        });
+        if (snapshot.records) setRecords(snapshot.records);
+        else if (!advance) setRecords([context]);
+        else {
+          setRecords((previous) => {
+            const last = previous[previous.length - 1];
+            if (!last || context.timestamp < last.timestamp) return [context];
+            if (context.timestamp === last.timestamp) return previous;
+            return [...previous.slice(-47), context];
+          });
+        }
+      } catch (error) {
+        if (isActive) {
+          setBackendUnavailable(true);
+          setReplayError(
+            error instanceof Error ? error.message : 'Replay data unavailable.',
+          );
+        }
       }
     };
 
@@ -584,7 +570,8 @@ export default function OccupantDashboard({
                 </div>
                 <div className="rounded-xl bg-surface-container-low p-3">
                   <span className="text-outline">Backend impact estimate</span>
-                  <p className="mt-1 font-bold text-on-surface">{numberText(impact?.estimated_energy_impact_kwh, 'kWh')}</p>
+                  <p className="mt-1 font-bold text-on-surface">Not available</p>
+                  <p className="text-[10px] text-outline">No What-If simulation result</p>
                 </div>
                 <div className="rounded-xl bg-surface-container-low p-3">
                   <span className="text-outline">Carbon impact</span>

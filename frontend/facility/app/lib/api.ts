@@ -232,6 +232,34 @@ export interface TariffConfig {
   normal_rate: number | null;
 }
 
+export interface ReplayDashboardSnapshot {
+  replay: ReplayContext;
+  records: ReplayRecord[] | null;
+  replayStatus: ReplayStatus | null;
+  forecast: ForecastCurrent | null;
+  peak: PeakCurrent | null;
+  expectedPeak: ExpectedPeak | null;
+  flexibility: FlexibilityCurrent | null;
+  recommendations: RecommendationsCurrent | null;
+  expectedRecommendations: RecommendationsExpected | null;
+  impact: ImpactCurrent | null;
+  weather: WeatherCurrent | null;
+  tariff: TariffCurrent | null;
+  tariffConfig: TariffConfig | null;
+}
+
+export interface CompletedImpactSimulation {
+  result: ImpactSimulation;
+  replayTimestamp: string;
+  durationHours: number;
+  requestedReductionKw: number;
+  flexibleDemandKw: number;
+  actualDemandKw: number;
+  appliedReductionKw: number;
+  scenarioDemandKw: number;
+  energyReductionKwh: number;
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { cache: 'no-store' });
   if (!response.ok) {
@@ -341,6 +369,110 @@ export function getTariffCurrent(): Promise<TariffCurrent> {
 
 export function getTariffConfig(): Promise<TariffConfig> {
   return getJson('/api/tariff/config');
+}
+
+function sameTimestamp(left: string, right: string): boolean {
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  return Number.isFinite(leftTime) && leftTime === rightTime;
+}
+
+function valueAtTimestamp<T extends { timestamp: string }>(
+  result: PromiseSettledResult<T>,
+  timestamp: string,
+): T | null {
+  return result.status === 'fulfilled' &&
+    sameTimestamp(result.value.timestamp, timestamp)
+    ? result.value
+    : null;
+}
+
+export async function getReplayDashboardSnapshot(
+  includeSample = false,
+): Promise<ReplayDashboardSnapshot> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const replay = await getReplayContext();
+    const [
+      forecastResult,
+      peakResult,
+      expectedPeakResult,
+      flexibilityResult,
+      recommendationsResult,
+      expectedRecommendationsResult,
+      impactResult,
+      statusResult,
+      tariffConfigResult,
+    ] = await Promise.allSettled([
+      getForecastCurrent(),
+      getPeakCurrent(),
+      getPeakExpected(),
+      getFlexibilityCurrent(),
+      getRecommendationsCurrent(),
+      getRecommendationsExpected(),
+      getImpactCurrent(),
+      getReplayStatus(),
+      getTariffConfig(),
+    ]);
+    const confirmedReplay = await getReplayContext();
+    if (!sameTimestamp(replay.timestamp, confirmedReplay.timestamp)) continue;
+
+    const hasTimestampMismatch =
+      (forecastResult.status === 'fulfilled' &&
+        !sameTimestamp(forecastResult.value.timestamp, replay.timestamp)) ||
+      (peakResult.status === 'fulfilled' &&
+        !sameTimestamp(peakResult.value.timestamp, replay.timestamp)) ||
+      (flexibilityResult.status === 'fulfilled' &&
+        !sameTimestamp(flexibilityResult.value.timestamp, replay.timestamp)) ||
+      (recommendationsResult.status === 'fulfilled' &&
+        !sameTimestamp(recommendationsResult.value.timestamp, replay.timestamp)) ||
+      (impactResult.status === 'fulfilled' &&
+        !sameTimestamp(impactResult.value.timestamp, replay.timestamp));
+    const expectedPeakTimestamp = addHoursPreservingOffset(replay.timestamp, 0.25);
+    if (hasTimestampMismatch) continue;
+
+    const sampleResult = includeSample
+      ? await Promise.allSettled([getReplaySample()])
+      : [];
+
+    return {
+      replay,
+      records:
+        sampleResult[0]?.status === 'fulfilled'
+          ? sampleResult[0].value
+          : null,
+      replayStatus:
+        statusResult.status === 'fulfilled' ? statusResult.value : null,
+      forecast: valueAtTimestamp(forecastResult, replay.timestamp),
+      peak: valueAtTimestamp(peakResult, replay.timestamp),
+      expectedPeak:
+        expectedPeakResult.status === 'fulfilled' &&
+        sameTimestamp(expectedPeakResult.value.window_start, expectedPeakTimestamp)
+          ? expectedPeakResult.value
+          : null,
+      flexibility: valueAtTimestamp(flexibilityResult, replay.timestamp),
+      recommendations: valueAtTimestamp(recommendationsResult, replay.timestamp),
+      expectedRecommendations: valueAtTimestamp(
+        expectedRecommendationsResult,
+        replay.timestamp,
+      ),
+      impact: valueAtTimestamp(impactResult, replay.timestamp),
+      weather: replay.weather
+        ? {
+            timestamp: replay.timestamp,
+            weather: replay.weather,
+            source: replay.weather.source,
+            mode: replay.mode,
+          }
+        : null,
+      tariff: null,
+      tariffConfig:
+        tariffConfigResult.status === 'fulfilled'
+          ? tariffConfigResult.value
+          : null,
+    };
+  }
+
+  throw new Error('Could not load dashboard data for one stable replay timestamp.');
 }
 
 export function simulateFlexibility(

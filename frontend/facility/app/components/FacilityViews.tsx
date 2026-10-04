@@ -8,6 +8,7 @@ import {
   ExpectedPeak,
   FlexibilityCurrent,
   ForecastCurrent,
+  CompletedImpactSimulation,
   GridEventSimulation,
   ImpactCurrent,
   PeakCurrent,
@@ -33,6 +34,8 @@ interface FacilityViewsProps {
   recommendations: RecommendationsCurrent | null;
   expectedRecommendations: RecommendationsCurrent | null;
   impact: ImpactCurrent | null;
+  simulation: CompletedImpactSimulation | null;
+  onSimulationComplete: (result: CompletedImpactSimulation | null) => void;
   tariff: TariffCurrent | null;
   tariffConfig: TariffConfig | null;
   backendUnavailable: boolean;
@@ -184,6 +187,8 @@ export default function FacilityViews({
   recommendations,
   expectedRecommendations,
   impact,
+  simulation,
+  onSimulationComplete,
   tariff,
   tariffConfig,
   backendUnavailable,
@@ -241,11 +246,11 @@ export default function FacilityViews({
     }
   };
 
-  if (section === 'Live Telemetry') {
+  if (section === 'Historical Replay') {
     return (
       <DashboardSection
-        title="Live Telemetry"
-        subtitle="I-BLEND Historical Replay — historical data replay, not live physical smart-meter telemetry."
+        title="Historical Replay"
+        subtitle="I-BLEND Historical Replay data; this is not live physical smart-meter telemetry."
       >
         {backendUnavailable && (
           <DataPanel><p className="text-xs text-error">Backend unavailable. Retaining any previously loaded replay data.</p></DataPanel>
@@ -305,6 +310,7 @@ export default function FacilityViews({
           replay={replay}
           flexibility={flexibility}
           impact={impact}
+          onSimulationComplete={onSimulationComplete}
           showToast={showToast}
         />
         <DataPanel>
@@ -394,8 +400,16 @@ export default function FacilityViews({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <InfoCard label="Current demand" value={metric(replay?.demand_kw, 'kW')} />
           <InfoCard label="Estimated reduction" value={metric(impact?.potential_reduction_kw, 'kW')} />
-          <InfoCard label="Estimated energy impact" value={metric(impact?.estimated_energy_impact_kwh, 'kWh')} />
-          <InfoCard label="Scenario demand" value={metric(impact?.scenario_demand_kw, 'kW')} />
+          <InfoCard
+            label="Estimated energy reduction"
+            value={simulation ? metric(simulation.energyReductionKwh, 'kWh') : '— Run simulation'}
+            detail={simulation ? `Simulation replay: ${dateTime(simulation.replayTimestamp)}` : undefined}
+          />
+          <InfoCard
+            label="Scenario demand"
+            value={simulation ? metric(simulation.scenarioDemandKw, 'kW') : '— Run simulation'}
+            detail={simulation ? `Simulation replay: ${dateTime(simulation.replayTimestamp)}` : undefined}
+          />
         </div>
         <DataPanel>
           <h2 className="text-sm font-bold text-on-surface">Carbon impact</h2>
@@ -403,7 +417,7 @@ export default function FacilityViews({
             Carbon calculation unavailable — no verified emissions factor is configured.
           </p>
           <p className="text-xs text-outline mt-3">
-            Energy impact is reported by the backend using {impact?.method ?? 'an unavailable method'}.
+            Simulation values use the backend impact model and are calculated from the selected replay interval.
             {impact?.notice ? ` ${impact.notice}` : ''}
           </p>
         </DataPanel>
@@ -411,9 +425,14 @@ export default function FacilityViews({
           replay={replay}
           flexibility={flexibility}
           impact={impact}
+          onSimulationComplete={onSimulationComplete}
           showToast={showToast}
         />
-        <ImpactVerification impact={impact} showToast={showToast} />
+        <ImpactVerification
+          impact={impact}
+          simulation={simulation}
+          showToast={showToast}
+        />
       </DashboardSection>
     );
   }

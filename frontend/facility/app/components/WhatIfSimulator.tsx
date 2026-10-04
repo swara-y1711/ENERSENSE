@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import {
+  CompletedImpactSimulation,
   FlexibilityCurrent,
   ImpactCurrent,
-  ImpactSimulation,
   ReplayRecord,
   simulateImpact,
 } from '../lib/api';
@@ -13,6 +13,7 @@ interface WhatIfSimulatorProps {
   replay: ReplayRecord | null;
   flexibility: FlexibilityCurrent | null;
   impact: ImpactCurrent | null;
+  onSimulationComplete: (result: CompletedImpactSimulation | null) => void;
   showToast: (msg: string, type?: 'info' | 'success') => void;
 }
 
@@ -22,22 +23,17 @@ function formatMetric(value: number | null | undefined, unit: string): string {
     : 'Not available';
 }
 
-interface CompletedSimulation {
-  result: ImpactSimulation;
-  replayTimestamp: string;
-  requestedReductionKw: number;
-  durationHours: number;
-}
-
 export default function WhatIfSimulator({
   replay,
   flexibility,
   impact,
+  onSimulationComplete,
   showToast,
 }: WhatIfSimulatorProps) {
   const [reductionTarget, setReductionTarget] = useState(0.6);
   const [duration, setDuration] = useState(1);
-  const [simulation, setSimulation] = useState<CompletedSimulation | null>(null);
+  const [simulation, setSimulation] =
+    useState<CompletedImpactSimulation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const flexibleDemandKw =
     typeof flexibility?.potential_flexible_kw === 'number' &&
@@ -51,42 +47,33 @@ export default function WhatIfSimulator({
     Math.max(0, reductionTarget),
     maximumReduction,
   );
-  const isAchievable =
-    isFlexibilityAvailable && requestedReductionKw <= flexibleDemandKw;
   const isCurrentSimulation =
     simulation !== null &&
     simulation.replayTimestamp === replay?.timestamp &&
     simulation.requestedReductionKw === requestedReductionKw &&
     simulation.durationHours === duration;
-  const simulationActualDemandKw = isCurrentSimulation
-    ? simulation.result.average_actual_demand_kw
-    : null;
+  const displayedSimulation = isCurrentSimulation ? simulation : null;
   const actualDemandKw =
-    typeof simulationActualDemandKw === 'number' &&
-    Number.isFinite(simulationActualDemandKw)
-      ? simulationActualDemandKw
-      : replay?.demand_kw ?? impact?.actual_demand_kw;
-  const appliedReductionKw = isFlexibilityAvailable
-    ? Math.min(requestedReductionKw, flexibleDemandKw)
-    : null;
-  const scenarioDemandKw =
-    typeof actualDemandKw === 'number' &&
-    typeof appliedReductionKw === 'number' &&
-    Number.isFinite(actualDemandKw)
-      ? Math.max(0, actualDemandKw - appliedReductionKw)
-      : null;
+    displayedSimulation?.actualDemandKw ?? replay?.demand_kw ?? null;
+  const appliedReductionKw = displayedSimulation?.appliedReductionKw ?? null;
+  const scenarioDemandKw = displayedSimulation?.scenarioDemandKw ?? null;
   const estimatedEnergyReductionKwh =
-    typeof appliedReductionKw === 'number' && Number.isFinite(duration)
-      ? appliedReductionKw * duration
-      : null;
+    displayedSimulation?.energyReductionKwh ?? null;
   const canSimulate = isFlexibilityAvailable && flexibleDemandKw > 0;
 
   const runSimulation = async () => {
-    if (!replay || !isFlexibilityAvailable || !canSimulate) {
+    if (
+      !replay ||
+      !isFlexibilityAvailable ||
+      !canSimulate ||
+      flexibility?.timestamp !== replay.timestamp
+    ) {
       showToast(
-        isFlexibilityAvailable
-          ? 'No positive flexible demand is currently estimated.'
-          : 'Flexibility estimate unavailable.',
+        !isFlexibilityAvailable
+          ? 'Flexibility estimate unavailable.'
+          : !replay || flexibility?.timestamp !== replay.timestamp
+            ? 'Replay and flexibility data are not from the same timestamp.'
+            : 'No positive flexible demand is currently estimated.',
       );
       return;
     }
@@ -104,12 +91,34 @@ export default function WhatIfSimulator({
         submittedDurationHours,
         appliedRequestKw,
       );
-      setSimulation({
+      const resultActualDemand = result.average_actual_demand_kw;
+      const backendAppliedReduction = result.average_simulated_reduction_kw;
+      if (
+        !Number.isFinite(resultActualDemand) ||
+        !Number.isFinite(backendAppliedReduction) ||
+        new Date(result.start_timestamp).getTime() !==
+          new Date(submittedReplayTimestamp).getTime()
+      ) {
+        throw new Error('Simulation response does not match the selected replay snapshot.');
+      }
+      const appliedReduction = Math.min(
+        Math.max(0, backendAppliedReduction),
+        appliedRequestKw,
+        flexibleDemandKw,
+      );
+      const completed: CompletedImpactSimulation = {
         result,
         replayTimestamp: submittedReplayTimestamp,
         requestedReductionKw: appliedRequestKw,
         durationHours: submittedDurationHours,
-      });
+        flexibleDemandKw,
+        actualDemandKw: resultActualDemand,
+        appliedReductionKw: appliedReduction,
+        scenarioDemandKw: resultActualDemand - appliedReduction,
+        energyReductionKwh: result.total_simulated_reduction_kwh,
+      };
+      setSimulation(completed);
+      onSimulationComplete(completed);
       showToast('Advisory impact simulation updated.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -128,10 +137,10 @@ export default function WhatIfSimulator({
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-on-surface">
-              Grid Event “What-If” Simulator
+              I-BLEND Historical Replay “What-If” Simulator
             </h2>
             <p className="text-xs text-outline">
-              Advisory simulation using the backend historical flexibility model; no equipment control.
+              Advisory simulation for the selected historical replay interval; no live telemetry or equipment control.
             </p>
           </div>
         </div>
@@ -169,6 +178,7 @@ export default function WhatIfSimulator({
                     if (Number.isFinite(value)) {
                       setReductionTarget(Math.max(0, Math.min(maximumReduction, value)));
                       setSimulation(null);
+                      onSimulationComplete(null);
                     }
                   }}
                   className="w-20 h-8 text-center font-mono font-bold text-xs bg-surface-container-lowest rounded-lg border border-surface-container-high outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
@@ -188,6 +198,7 @@ export default function WhatIfSimulator({
                 onChange={(event) => {
                   setReductionTarget(Number(event.target.value));
                   setSimulation(null);
+                  onSimulationComplete(null);
                 }}
                 className="w-full accent-primary h-2 bg-surface-container-high rounded cursor-pointer touch-pan-x disabled:opacity-50"
               />
@@ -220,6 +231,7 @@ export default function WhatIfSimulator({
                   onClick={() => {
                     setDuration(hours);
                     setSimulation(null);
+                    onSimulationComplete(null);
                   }}
                 >
                   {hours} Hour{hours > 1 ? 's' : ''}
@@ -242,7 +254,7 @@ export default function WhatIfSimulator({
               <span>{isCalculating ? 'SIMULATING...' : 'RUN ADVISORY SIMULATION'}</span>
             </button>
             <span className="text-[11px] font-mono text-outline text-center sm:text-right">
-              Source: backend impact model
+              Source: I-BLEND Historical Replay · backend impact model
             </span>
           </div>
         </div>
@@ -254,23 +266,23 @@ export default function WhatIfSimulator({
                 Projected Curtailment Impact
               </h3>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-surface-container-high text-outline">
-                {simulation ? 'Simulated' : impact?.mode ?? 'Not available'}
+                {displayedSimulation ? 'Simulated' : 'Run simulation'}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3 mb-3">
               <div className="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high">
                 <span className="text-[10px] font-mono uppercase text-outline">
-                  {isCurrentSimulation
+                  {displayedSimulation
                     ? 'Actual Demand · Simulation Interval'
                     : 'Actual Demand'}
                 </span>
                 <div className="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5">
                   {formatMetric(actualDemandKw, 'kW')}
                 </div>
-                {isCurrentSimulation && (
+                {displayedSimulation && (
                   <span className="text-[10px] text-outline">
-                    {simulation.result.start_timestamp} – {simulation.result.end_timestamp}
+                    {displayedSimulation.result.start_timestamp} – {displayedSimulation.result.end_timestamp}
                   </span>
                 )}
               </div>
@@ -314,16 +326,16 @@ export default function WhatIfSimulator({
               <span className="text-xs font-bold text-on-surface">
                 Scenario Achievability
               </span>
-              <span className={`text-xs font-bold font-mono text-right ${isAchievable ? 'text-primary' : 'text-error'}`}>
+              <span className={`text-xs font-bold font-mono text-right ${displayedSimulation ? 'text-primary' : 'text-outline'}`}>
                 {!isFlexibilityAvailable
                   ? 'Flexibility estimate unavailable'
-                  : isAchievable
+                  : displayedSimulation
                     ? 'Within estimated flexibility'
-                    : 'Exceeds estimated flexibility'}
+                    : 'Run simulation'}
               </span>
             </div>
             <p className="text-[10px] text-outline">
-              {simulation?.result.notice ??
+              {displayedSimulation?.result.notice ??
                 impact?.notice ??
                 'This is a what-if scenario and does not claim automatic equipment control.'}
             </p>

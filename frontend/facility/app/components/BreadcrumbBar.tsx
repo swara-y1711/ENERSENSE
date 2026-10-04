@@ -22,7 +22,7 @@ export default function BreadcrumbBar({
   showToast,
 }: BreadcrumbBarProps) {
   const timeframes = [
-    { id: 'live', label: 'Live (15m)' },
+    { id: 'live', label: 'Replay (15m)' },
     { id: 'yesterday', label: 'Yesterday' },
     { id: '7d', label: '7D Avg' },
     { id: 'custom', label: 'Custom' },
@@ -82,7 +82,7 @@ export default function BreadcrumbBar({
 
         <button
           className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-surface-container-lowest border border-surface-container-high hover:bg-surface-container-low rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-          onClick={() => showToast('Generating telemetry audit report (PDF & CSV)...', 'success')}
+          onClick={() => showToast('Replay audit export is not available from the backend.')}
         >
           <span className="material-symbols-outlined text-[16px] text-outline">
             download

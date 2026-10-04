@@ -25,7 +25,9 @@ export default function SubmeterBreakdown({
             <p className="text-xs text-outline">Subsystem-level load is not provided by the replay API</p>
           </div>
           <span className="px-2 py-0.5 bg-surface-container-high rounded text-xs font-mono font-bold">
-            {typeof activeKw === 'number' ? `${activeKw.toFixed(2)} kW Total` : 'Not available'}
+            {typeof activeKw === 'number' && Number.isFinite(activeKw)
+              ? `${activeKw.toFixed(2)} kW Building demand`
+              : 'Not available'}
           </span>
         </div>
 
