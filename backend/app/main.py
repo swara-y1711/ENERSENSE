@@ -9,6 +9,7 @@ from app.api.forecast import router as forecast_router
 from app.api.peak import router as peak_router
 from app.api.flexibility import router as flexibility_router
 from app.api.recommendations import router as recommendations_router
+from app.api.impact import router as impact_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -54,6 +55,9 @@ app.include_router(flexibility_router, prefix="/api")
 
 # Include Advisory Recommendations Router under /api (Stage 5)
 app.include_router(recommendations_router, prefix="/api")
+
+# Include Impact & Baseline Verification Router under /api (Stage 6)
+app.include_router(impact_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
