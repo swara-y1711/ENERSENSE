@@ -8,6 +8,8 @@ interface BreadcrumbBarProps {
   timeframe: string;
   onSelectTimeframe: (tf: string, label: string) => void;
   showToast: (msg: string, type?: 'info' | 'success') => void;
+  currentTimestamp?: string;
+  mode?: string;
 }
 
 export default function BreadcrumbBar({
@@ -15,12 +17,14 @@ export default function BreadcrumbBar({
   timeframe,
   onSelectTimeframe,
   showToast,
+  currentTimestamp,
+  mode = 'historical_backtest',
 }: BreadcrumbBarProps) {
   const timeframes = [
-    { id: 'live', label: 'Live (15m)' },
-    { id: 'yesterday', label: 'Yesterday' },
-    { id: '7d', label: '7D Avg' },
-    { id: 'custom', label: 'Custom' },
+    { id: 'live', label: 'Replay (15m)' },
+    { id: 'yesterday', label: 'Oct 02' },
+    { id: '7d', label: 'Week 1' },
+    { id: 'custom', label: 'Full Month' },
   ];
 
   return (
@@ -29,7 +33,7 @@ export default function BreadcrumbBar({
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-outline font-medium">
         <span>Facilities</span>
         <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-        <span>Bengaluru Tech Zone</span>
+        <span>I-BLEND Academic Building</span>
         <span className="material-symbols-outlined text-[14px]">chevron_right</span>
         <span className="font-bold text-on-surface truncate">
           {activeBuilding.name}
@@ -37,11 +41,16 @@ export default function BreadcrumbBar({
         <span
           className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[10px] font-semibold cursor-pointer shrink-0 hover:bg-primary/20 transition-colors"
           onClick={() =>
-            showToast('Sensors healthy: 142 BACnet/IP nodes connected.', 'success')
+            showToast('Operating mode: Historical backtest & replay from I-BLEND dataset (October 2016).', 'info')
           }
         >
-          SENSORS (142/142)
+          HISTORICAL REPLAY • OCT 2016
         </span>
+        {currentTimestamp && (
+          <span className="hidden sm:inline-block px-2 py-0.5 rounded bg-surface-container text-outline font-mono text-[10px]">
+            {currentTimestamp.replace('T', ' ').slice(0, 16)}
+          </span>
+        )}
       </div>
 
       {/* Controls: Timeframe Pills & Action Buttons */}

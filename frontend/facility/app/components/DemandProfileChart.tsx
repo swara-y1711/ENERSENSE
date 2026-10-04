@@ -13,14 +13,21 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { DEMAND_TELEMETRY, ChartTelemetryPoint } from '../data/facilityData';
+import { ReplayRecord } from '../lib/api';
 
 interface DemandProfileChartProps {
   reductionTarget: number;
+  telemetry?: ReplayRecord[];
+  baselineDemandKw?: number;
 }
 
 type CircuitFilter = 'all' | 'hvac' | 'ev' | 'aux';
 
-export default function DemandProfileChart({ reductionTarget }: DemandProfileChartProps) {
+export default function DemandProfileChart({
+  reductionTarget,
+  telemetry,
+  baselineDemandKw,
+}: DemandProfileChartProps) {
   const [circuitFilter, setCircuitFilter] = useState<CircuitFilter>('all');
   const [showBaseline, setShowBaseline] = useState<boolean>(true);
   const [showGridwise, setShowGridwise] = useState<boolean>(true);
@@ -31,76 +38,103 @@ export default function DemandProfileChart({ reductionTarget }: DemandProfileCha
   }, []);
 
   // Compute dataset dynamically based on selected circuit filter and reductionTarget
-  const chartData = DEMAND_TELEMETRY.map((pt) => {
-    let base = pt.allBaseline;
-    let grid = pt.allGridwise;
+  const chartData = (telemetry && telemetry.length > 0)
+    ? telemetry.map((pt) => {
+        const timeStr = pt.timestamp ? (pt.timestamp.split('T')[1]?.slice(0, 5) || pt.timestamp.slice(11, 16)) : '00:00';
+        const actual = pt.demand_kw;
+        const base = baselineDemandKw !== undefined ? baselineDemandKw : 56.3;
+        const grid = Math.max(0, actual - reductionTarget);
 
-    if (circuitFilter === 'hvac') {
-      base = pt.hvacBaseline;
-      grid = pt.hvacGridwise;
-    } else if (circuitFilter === 'ev') {
-      base = pt.evBaseline;
-      grid = pt.evGridwise;
-    } else if (circuitFilter === 'aux') {
-      base = pt.auxBaseline;
-      grid = pt.auxGridwise;
-    }
+        return {
+          time: timeStr,
+          timestamp: pt.timestamp,
+          baselineVal: Number(base.toFixed(1)),
+          gridwiseVal: Number(grid.toFixed(1)),
+          actualVal: Number(actual.toFixed(1)),
+          allBaseline: Number(base.toFixed(1)),
+          allGridwise: Number(grid.toFixed(1)),
+          hvacBaseline: Number((base * 0.52).toFixed(1)),
+          hvacGridwise: Number((grid * 0.52).toFixed(1)),
+          evBaseline: Number((base * 0.24).toFixed(1)),
+          evGridwise: Number((grid * 0.24).toFixed(1)),
+          auxBaseline: Number((base * 0.24).toFixed(1)),
+          auxGridwise: Number((grid * 0.24).toFixed(1)),
+          isPeakWindow: actual >= 64.5,
+        };
+      })
+    : DEMAND_TELEMETRY.map((pt) => {
+        let base = pt.allBaseline;
+        let grid = pt.allGridwise;
 
-    // Apply reduction target during peak window
-    if (pt.isPeakWindow && circuitFilter === 'all') {
-      grid = Math.max(260, base - reductionTarget);
-    }
+        if (circuitFilter === 'hvac') {
+          base = pt.hvacBaseline;
+          grid = pt.hvacGridwise;
+        } else if (circuitFilter === 'ev') {
+          base = pt.evBaseline;
+          grid = pt.evGridwise;
+        } else if (circuitFilter === 'aux') {
+          base = pt.auxBaseline;
+          grid = pt.auxGridwise;
+        }
 
-    return {
-      ...pt,
-      baselineVal: base,
-      gridwiseVal: grid,
-    };
-  });
+        // Apply reduction target during peak window
+        if (pt.isPeakWindow && circuitFilter === 'all') {
+          grid = Math.max(260, base - reductionTarget);
+        }
+
+        return {
+          ...pt,
+          actualVal: base,
+          baselineVal: base,
+          gridwiseVal: grid,
+          isPeakWindow: !!pt.isPeakWindow,
+        };
+      });
 
   const getCalloutText = () => {
     switch (circuitFilter) {
       case 'hvac':
-        return `↓ -${Math.min(45, reductionTarget)} kW HVAC Shaved at 19:15`;
+        return `↓ -${Math.min(45, reductionTarget)} kW HVAC Potential Shift`;
       case 'ev':
-        return `↓ -${Math.min(25, reductionTarget)} kW EV Bay Throttled`;
+        return `↓ -${Math.min(25, reductionTarget)} kW EV Charging Deferral`;
       case 'aux':
-        return `↓ -8 kW Auxiliary Lighting Shaved`;
+        return `↓ -8 kW Auxiliary Non-Essential Load`;
       default:
-        return `↓ -${reductionTarget} kW Peak Shaved at 19:15`;
+        return `↓ -${reductionTarget} kW Potential Peak Load Shift`;
     }
   };
 
   // Custom Recharts Tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const data: ChartTelemetryPoint & { baselineVal: number; gridwiseVal: number } = payload[0].payload;
+      const data: any = payload[0].payload;
       const base = data.baselineVal;
       const grid = data.gridwiseVal;
-      const diff = base - grid;
-      const savingsRate = diff > 0 ? diff * 110 : 0;
+      const actual = data.actualVal ?? base;
+      const diff = Math.max(0, actual - grid);
+      const kwhImpact = (diff * 0.25).toFixed(2);
 
       return (
-        <div className="bg-on-surface text-surface p-2.5 rounded-lg shadow-xl text-xs font-mono min-w-[160px]">
+        <div className="bg-on-surface text-surface p-2.5 rounded-lg shadow-xl text-xs font-mono min-w-[170px]">
           <div className="font-bold border-b border-outline/30 pb-1 mb-1 text-[11px]">
             Time: {label} IST
           </div>
           <div className="flex justify-between text-outline-variant gap-3">
-            <span>Baseline:</span>
+            <span>Baseline Ref:</span>
             <span className="font-bold text-white">{base} kW</span>
           </div>
+          <div className="flex justify-between text-secondary gap-3">
+            <span>Actual Demand:</span>
+            <span className="font-bold text-secondary">{actual} kW</span>
+          </div>
           <div className="flex justify-between text-primary-container gap-3">
-            <span>Gridwise:</span>
+            <span>Scenario:</span>
             <span className="font-bold text-primary-container">{grid} kW</span>
           </div>
-          <div className="flex justify-between text-secondary mt-1 pt-1 border-t border-outline/30 gap-3">
-            <span>Hourly Delta:</span>
+          <div className="flex justify-between text-tertiary mt-1 pt-1 border-t border-outline/30 gap-3">
+            <span>Simulated Impact:</span>
             <span className="font-bold">
-              {diff > 0
-                ? `₹${savingsRate.toLocaleString('en-IN')}/h saved`
-                : diff < 0
-                ? 'Pre-cooling'
-                : 'Normal'}
+              {diff > 0 ? `${diff.toFixed(1)} kW (${kwhImpact} kWh)` : 'Normal'}
             </span>
           </div>
         </div>

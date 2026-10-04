@@ -24,6 +24,25 @@ import {
   AuditLogItem,
 } from './data/facilityData';
 
+import {
+  getReplayCurrent,
+  getReplaySample,
+  getForecastCurrent,
+  getPeakCurrent,
+  getPeakExpected,
+  getFlexibilityCurrent,
+  getRecommendationsCurrent,
+  getImpactCurrent,
+  getWeatherCurrent,
+  ReplayRecord,
+  PeakResult,
+  ExpectedPeakResult,
+  FlexibilityResult,
+  RecommendationBundle,
+  CurrentImpactResult,
+  WeatherResponse,
+} from './lib/api';
+
 export default function FacilityManagerDashboard() {
   // Reactive State
   const [activeBuilding, setActiveBuilding] = useState<BuildingOption>(BUILDINGS[0]);
@@ -31,12 +50,24 @@ export default function FacilityManagerDashboard() {
   const [activeRole, setActiveRole] = useState<'FM' | 'Occupant'>('FM');
   const [timeframe, setTimeframe] = useState<string>('live');
 
+  // Backend Integration State
+  const [isBackendOnline, setIsBackendOnline] = useState<boolean>(true);
+  const [currentTimestamp, setCurrentTimestamp] = useState<string>('2016-10-03T11:15:00+05:30');
+  const [telemetrySeries, setTelemetrySeries] = useState<ReplayRecord[]>([]);
+  const [peakResult, setPeakResult] = useState<PeakResult | null>(null);
+  const [expectedPeak, setExpectedPeak] = useState<ExpectedPeakResult | null>(null);
+  const [flexResult, setFlexResult] = useState<FlexibilityResult | null>(null);
+  const [recsBundle, setRecsBundle] = useState<RecommendationBundle | null>(null);
+  const [impactCurrent, setImpactCurrent] = useState<CurrentImpactResult | null>(null);
+  const [weatherData, setWeatherData] = useState<WeatherResponse | null>(null);
+
   const [kpi, setKpi] = useState<KpiMetrics>(INITIAL_KPI);
-  const [activeKw, setActiveKw] = useState<number>(343);
+  const [activeKw, setActiveKw] = useState<number>(71.6);
+  const [baselineKw, setBaselineKw] = useState<number>(56.3);
 
   // Simulator state
-  const [reductionTarget, setReductionTarget] = useState<number>(45);
-  const [duration, setDuration] = useState<number>(3);
+  const [reductionTarget, setReductionTarget] = useState<number>(15);
+  const [duration, setDuration] = useState<number>(2);
   const [subsystems, setSubsystems] = useState({
     hvac: true,
     ev: true,
@@ -69,34 +100,79 @@ export default function FacilityManagerDashboard() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Live Heartbeat Jitter Simulator
+  // Fetch real backend data on mount
   useEffect(() => {
-    const timer = setInterval(() => {
-      const jitter = Math.floor(Math.random() * 5) - 2;
-      setActiveKw((prev) => Math.max(300, Math.min(400, prev + jitter)));
-    }, 3500);
-    return () => clearInterval(timer);
+    let isMounted = true;
+
+    async function loadBackendData() {
+      try {
+        const [
+          replayRes,
+          forecastRes,
+          peakRes,
+          flexRes,
+          expectedRes,
+          recsRes,
+          sampleRes,
+          impactRes,
+          weatherRes,
+        ] = await Promise.all([
+          getReplayCurrent().catch(() => null),
+          getForecastCurrent().catch(() => null),
+          getPeakCurrent().catch(() => null),
+          getFlexibilityCurrent().catch(() => null),
+          getPeakExpected().catch(() => null),
+          getRecommendationsCurrent().catch(() => null),
+          getReplaySample(24).catch(() => []),
+          getImpactCurrent().catch(() => null),
+          getWeatherCurrent().catch(() => null),
+        ]);
+
+        if (!isMounted) return;
+
+        if (replayRes) {
+          setIsBackendOnline(true);
+          setActiveKw(replayRes.demand_kw);
+          setCurrentTimestamp(replayRes.timestamp);
+        } else {
+          setIsBackendOnline(false);
+        }
+
+        if (peakRes) setPeakResult(peakRes);
+        if (expectedRes) setExpectedPeak(expectedRes);
+        if (flexRes) {
+          setFlexResult(flexRes);
+          setBaselineKw(flexRes.historical_reference_demand_kw);
+          setReductionTarget(Math.min(20, Math.round(flexRes.potential_flexible_kw)));
+        }
+        if (recsRes) setRecsBundle(recsRes);
+        if (sampleRes && sampleRes.length > 0) setTelemetrySeries(sampleRes);
+        if (impactRes) setImpactCurrent(impactRes);
+        if (weatherRes) setWeatherData(weatherRes);
+      } catch (err) {
+        if (!isMounted) return;
+        setIsBackendOnline(false);
+        console.warn('Backend unavailable, using historical demo fallback.');
+      }
+    }
+
+    loadBackendData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Timeframe selector handler
   const handleSelectTimeframe = (tfId: string, label: string) => {
     setTimeframe(tfId);
-    if (tfId === 'live') {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 4820, cumDelta: '+4.2%' }));
-    } else if (tfId === 'yesterday') {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 5210, cumDelta: '-1.5%' }));
-    } else if (tfId === '7d') {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 33650, cumDelta: '+0.8%' }));
-    } else {
-      setKpi((prev) => ({ ...prev, cumulativeKwh: 4940, cumDelta: '+2.0%' }));
-    }
-    showToast(`Dashboard updated for ${label} view`);
+    showToast(`Timeframe updated to ${label}`);
   };
 
   // Simulator reset
   const handleResetSimulator = () => {
-    setReductionTarget(45);
-    setDuration(3);
+    setReductionTarget(flexResult ? Math.min(20, Math.round(flexResult.potential_flexible_kw)) : 15);
+    setDuration(2);
     setSubsystems({ hvac: true, ev: true, storage: true });
     showToast('Simulator restored to baseline parameters.');
   };
@@ -105,36 +181,30 @@ export default function FacilityManagerDashboard() {
   const handleConfirmDispatch = () => {
     setDispatchModalOpen(false);
     showToast(
-      `Automated curtailment armed (-${reductionTarget} kW). BACnet command queued.`,
+      `Scenario committed: -${reductionTarget} kW potential shift staged. (Simulation advisory only)`,
       'success'
     );
 
     const newLog: AuditLogItem = {
       id: `#DR-${Math.floor(Math.random() * 100) + 883}`,
-      window: `Today, 18:00 - ${18 + duration}:00`,
+      window: `Historical Replay: ${expectedPeak ? `${expectedPeak.window_start.slice(11, 16)} - ${expectedPeak.window_end.slice(11, 16)}` : '11:15 - 13:00'}`,
       committedKw: reductionTarget,
-      deliveredKw: 'Pending',
-      compliancePct: 'Armed',
-      status: 'Armed',
+      deliveredKw: Math.min(reductionTarget, flexResult?.potential_flexible_kw ?? reductionTarget),
+      compliancePct: 'Verified',
+      status: 'Verified',
       icon: 'schedule',
-      statusNote: 'Pre-cooling',
-      toastNote: `Event #DR-883: Armed -${reductionTarget}kW automated curtailment.`,
+      statusNote: 'Simulated Shift',
+      toastNote: `Event #DR-883: -${reductionTarget}kW simulated flexibility reduction.`,
     };
 
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
-  // Synchronize available capacity for KPI flex
-  const availableCap =
-    (subsystems.hvac ? 45 : 0) +
-    (subsystems.ev ? 25 : 0) +
-    (subsystems.storage ? 15 : 0);
+  const peakWindowLabel = expectedPeak
+    ? `${expectedPeak.window_start.slice(11, 16)} - ${expectedPeak.window_end.slice(11, 16)}`
+    : '11:15 - 13:00';
 
-  const kpiUpdated: KpiMetrics = {
-    ...kpi,
-    flexibleShedCapKw: availableCap,
-    flexPct: `${((availableCap / activeKw) * 100).toFixed(1)}%`,
-  };
+  const currentRecommendation = recsBundle?.recommendations?.[0] || null;
 
   return (
     <div className="bg-surface font-sans text-on-surface antialiased overflow-x-hidden min-h-screen flex flex-col">
@@ -144,12 +214,14 @@ export default function FacilityManagerDashboard() {
         onSelectBuilding={setActiveBuilding}
         onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
         onOpenOccupantModal={() => {
-          setActiveRole('Occupant');
           setOccupantModalOpen(true);
         }}
         showToast={showToast}
         activeRole={activeRole}
         onSelectRole={setActiveRole}
+        peakStatus={peakResult?.peak_status || 'predicted_peak'}
+        peakWindow={peakWindowLabel}
+        isBackendOnline={isBackendOnline}
       />
 
       {/* Sidebar Navigation */}
@@ -170,14 +242,28 @@ export default function FacilityManagerDashboard() {
             timeframe={timeframe}
             onSelectTimeframe={handleSelectTimeframe}
             showToast={showToast}
+            currentTimestamp={currentTimestamp}
+            mode="historical_backtest"
           />
 
           {/* KPI Ribbon (Fluid 1 -> 2 -> 4 cols) */}
-          <KpiRibbon kpi={kpiUpdated} activeKw={activeKw} />
+          <KpiRibbon
+            kpi={kpi}
+            activeKw={activeKw}
+            baselineKw={baselineKw}
+            predictedDemandKw={peakResult?.predicted_demand_kw ?? activeKw}
+            peakStatus={peakResult?.peak_status || 'predicted_peak'}
+            potentialFlexibleKw={flexResult?.potential_flexible_kw ?? 15.4}
+            peakWindow={peakWindowLabel}
+          />
 
           {/* Main Row: Demand Profile Chart & Submeter Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
-            <DemandProfileChart reductionTarget={reductionTarget} />
+            <DemandProfileChart
+              reductionTarget={reductionTarget}
+              telemetry={telemetrySeries}
+              baselineDemandKw={baselineKw}
+            />
             <SubmeterBreakdown
               onOpenDrawer={() => setSubmeterDrawerOpen(true)}
               showToast={showToast}
@@ -196,11 +282,20 @@ export default function FacilityManagerDashboard() {
             onReset={handleResetSimulator}
             onOpenDispatchModal={() => setDispatchModalOpen(true)}
             showToast={showToast}
-            basePeakKw={kpi.predPeakKw}
+            basePeakKw={peakResult?.predicted_demand_kw ?? activeKw}
+            availableFlexKw={flexResult?.potential_flexible_kw ?? 15.4}
+            startTimestamp={expectedPeak?.window_start}
+            endTimestamp={expectedPeak?.window_end}
           />
 
           {/* Impact Verification & Immutable Audit Logs */}
-          <ImpactVerification logs={auditLogs} showToast={showToast} />
+          <ImpactVerification
+            logs={auditLogs}
+            showToast={showToast}
+            impactKwh={impactCurrent?.estimated_energy_impact_kwh}
+            baselineDiffKw={impactCurrent?.baseline_difference_kw}
+            actualDemandKw={activeKw}
+          />
 
           {/* Developer Debug Bar */}
           <DeveloperDrawer activeBuilding={activeBuilding} />
@@ -219,9 +314,11 @@ export default function FacilityManagerDashboard() {
         isOpen={occupantModalOpen}
         onClose={() => {
           setOccupantModalOpen(false);
-          setActiveRole('FM');
         }}
         showToast={showToast}
+        recommendation={currentRecommendation}
+        weather={weatherData}
+        expectedWindow={peakWindowLabel}
       />
 
       {/* Dispatch Staging Confirmation Dialog */}

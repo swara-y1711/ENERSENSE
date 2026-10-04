@@ -6,12 +6,21 @@ import { AuditLogItem } from '../data/facilityData';
 interface ImpactVerificationProps {
   logs: AuditLogItem[];
   showToast: (msg: string, type?: 'info' | 'success') => void;
+  impactKwh?: number;
+  baselineDiffKw?: number;
+  actualDemandKw?: number;
 }
 
 export default function ImpactVerification({
   logs,
   showToast,
+  impactKwh,
+  baselineDiffKw,
+  actualDemandKw,
 }: ImpactVerificationProps) {
+  const displayShiftKwh = impactKwh !== undefined ? `${impactKwh.toFixed(1)} kWh` : '48.9 kWh';
+  const displayDiffKw = baselineDiffKw !== undefined ? `${baselineDiffKw > 0 ? '+' : ''}${baselineDiffKw.toFixed(1)} kW` : '+16.1 kW';
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
       {/* Verification Summary (4 Cols on desktop, 12 on mobile/tablet) */}
@@ -26,24 +35,24 @@ export default function ImpactVerification({
             </h3>
           </div>
           <p className="text-xs text-outline">
-            Backtested 30-day verified curtailment telemetry audited against BESCOM utility metering.
+            Historical backtest replay verified against Stage 4 empirical slot median baseline.
           </p>
 
           <div className="space-y-2 pt-2">
             <div
               className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container transition-colors"
-              onClick={() => showToast('Total curtailment sessions: 28 events recorded.')}
+              onClick={() => showToast('Simulated event energy shift based on 15m intervals.')}
             >
-              <span className="text-outline">Total Load Shifted</span>
-              <span className="font-mono font-bold">18.4 MWh</span>
+              <span className="text-outline">Total Simulated Shift</span>
+              <span className="font-mono font-bold">{displayShiftKwh}</span>
             </div>
 
             <div
               className="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container transition-colors"
-              onClick={() => showToast('Tariff savings credited in billing cycle #9928.')}
+              onClick={() => showToast('Baseline reference comparison via historical slot median differential.')}
             >
-              <span className="text-outline">Verified Tariff Savings</span>
-              <span className="font-mono font-bold text-primary">₹1,84,200</span>
+              <span className="text-outline">Baseline Demand Delta</span>
+              <span className="font-mono font-bold text-primary">{displayDiffKw}</span>
             </div>
 
             <div

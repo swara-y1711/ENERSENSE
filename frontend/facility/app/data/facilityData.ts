@@ -78,6 +78,12 @@ export interface NotificationItem {
 
 export const BUILDINGS: BuildingOption[] = [
   {
+    id: 'IBLEND-ACAD',
+    name: 'Academic Building (I-BLEND Replay)',
+    shortName: 'Academic Building (I-BLEND)',
+    currentKw: 71.6,
+  },
+  {
     id: 'BLR-OLY-B',
     name: 'Olympus Tower Tech Park - Block B',
     shortName: 'Block B (Spine)',

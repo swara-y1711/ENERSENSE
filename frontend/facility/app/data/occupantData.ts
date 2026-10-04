@@ -53,7 +53,7 @@ export const INITIAL_OCCUPANT_PROFILE: OccupantProfile = {
   podId: 'Pod 4B',
   zone: 'Zone B-North',
   floor: 'Floor 4',
-  campus: 'Olympus Tech Park · B-4',
+  campus: 'Academic Building (I-BLEND Replay)',
   targetSetpoint: 23.8,
   currentTemp: 24.0,
   pmvScore: 0.05,
@@ -62,8 +62,8 @@ export const INITIAL_OCCUPANT_PROFILE: OccupantProfile = {
 
 export const INITIAL_COMFORT_METRICS: ComfortMetrics = {
   dailyKwh: 1.8,
-  kwhAvgComparison: '-14% vs avg',
-  kwhStatusNote: 'Within campus tier-1 target',
+  kwhAvgComparison: 'Replay Reference',
+  kwhStatusNote: 'Within historical slot baseline',
   kwhProgressPct: 72,
   co2eKg: 9.8,
   carbonRank: 'Top 5%',
@@ -72,20 +72,20 @@ export const INITIAL_COMFORT_METRICS: ComfortMetrics = {
 };
 
 export const INITIAL_PEAK_CHALLENGE: PeakDemandChallenge = {
-  title: 'Peak demand expected 6-9 PM. Shift EV charging past 9 PM.',
+  title: 'Peak demand window expected. Consider shifting flexible loads.',
   timeWindow: '6:00 PM – 9:00 PM',
-  rebateText: '₹18.00 rebate',
+  rebateText: 'Flexibility Available',
   gridRelief: 'High Relief',
-  evActionLabel: 'Shift EV Charging to 9:15 PM (Save ₹18)',
+  evActionLabel: 'Consider Shifting Flexible Loads Outside Peak',
 };
 
 export const SHIFT_CHALLENGES: ShiftChallengeItem[] = [
   {
     id: 'departure',
     title: 'Desk Departure Deep Sleep',
-    description: 'Power down external dual monitors & USB dock when departing Pod 4B.',
-    rewardText: '+₹8.50 rebate',
-    impactText: '0.8 kg CO₂',
+    description: 'Power down external dual monitors & USB dock when departing workstation.',
+    rewardText: '+20 EcoCredits',
+    impactText: '~0.2 kWh potential reduction',
     actionLabel: 'Power Down Pod',
     completedLabel: 'Pod In Sleep Mode',
     icon: 'power_off',
@@ -94,7 +94,7 @@ export const SHIFT_CHALLENGES: ShiftChallengeItem[] = [
   {
     id: 'collab',
     title: 'Afternoon Sunlit Workspace',
-    description: 'Shift 3:00 PM focus session to Zone 4A Atrium (naturally cooled by building thermal mass).',
+    description: 'Shift focus session to naturally cooled Atrium zone during peak hours.',
     rewardText: '+30 EcoCredits',
     impactText: 'Social Zone',
     actionLabel: 'Opt In Zone 4A',
@@ -105,11 +105,11 @@ export const SHIFT_CHALLENGES: ShiftChallengeItem[] = [
 ];
 
 export const POD_HOURLY_TELEMETRY: PodHourlyPoint[] = [
-  { time: '08:00', podKw: 0.4, campusAvgKw: 0.6, temp: 23.5 },
-  { time: '10:00', podKw: 1.2, campusAvgKw: 1.5, temp: 23.8 },
-  { time: '12:00', podKw: 1.8, campusAvgKw: 2.1, temp: 24.0 },
-  { time: '14:00', podKw: 1.6, campusAvgKw: 2.0, temp: 24.1 },
-  { time: '16:00', podKw: 1.4, campusAvgKw: 1.8, temp: 24.0 },
-  { time: '18:00', podKw: 0.8, campusAvgKw: 1.4, temp: 23.9 },
-  { time: '20:00', podKw: 0.3, campusAvgKw: 0.5, temp: 23.6 },
+  { time: '08:00', podKw: 24.2, campusAvgKw: 28.5, temp: 23.5 },
+  { time: '10:00', podKw: 42.1, campusAvgKw: 45.0, temp: 25.8 },
+  { time: '12:00', podKw: 58.4, campusAvgKw: 62.1, temp: 28.0 },
+  { time: '14:00', podKw: 56.6, campusAvgKw: 60.0, temp: 28.5 },
+  { time: '16:00', podKw: 51.4, campusAvgKw: 55.8, temp: 27.0 },
+  { time: '18:00', podKw: 38.8, campusAvgKw: 41.4, temp: 25.2 },
+  { time: '20:00', podKw: 28.3, campusAvgKw: 31.5, temp: 24.1 },
 ];

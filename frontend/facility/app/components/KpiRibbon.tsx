@@ -6,10 +6,27 @@ import { KpiMetrics } from '../data/facilityData';
 interface KpiRibbonProps {
   kpi: KpiMetrics;
   activeKw: number;
+  baselineKw?: number;
+  predictedDemandKw?: number;
+  peakStatus?: string;
+  potentialFlexibleKw?: number;
+  peakWindow?: string;
 }
 
-export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
-  const capPct = Math.min(100, Math.round((activeKw / kpi.transformerCapKw) * 100));
+export default function KpiRibbon({
+  kpi,
+  activeKw,
+  baselineKw,
+  predictedDemandKw,
+  peakStatus = 'below_peak',
+  potentialFlexibleKw,
+  peakWindow = '11:15 - 13:00',
+}: KpiRibbonProps) {
+  const displayActiveKw = Number(activeKw.toFixed(1));
+  const displayBaselineKw = baselineKw !== undefined ? Number(baselineKw.toFixed(1)) : 56.3;
+  const displayPredKw = predictedDemandKw !== undefined ? Number(predictedDemandKw.toFixed(1)) : Number(kpi.predPeakKw.toFixed(1));
+  const displayFlexKw = potentialFlexibleKw !== undefined ? Number(potentialFlexibleKw.toFixed(1)) : Number(kpi.flexibleShedCapKw.toFixed(1));
+  const capPct = Math.min(100, Math.round((displayActiveKw / (kpi.transformerCapKw || 100)) * 100));
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -25,16 +42,16 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-on-surface">
-            {kpi.cumulativeKwh.toLocaleString('en-US')}
+            {displayBaselineKw}
           </span>
-          <span className="text-xs font-mono text-outline ml-1">kWh</span>
+          <span className="text-xs font-mono text-outline ml-1">kW Ref</span>
         </div>
         <div className="text-[11px] text-outline flex justify-between gap-1">
           <span className="truncate">
-            Baseline: {kpi.baselineKwh.toLocaleString('en-US')} kWh
+            Slot Median Baseline (Stage 4)
           </span>
           <span className="text-primary font-medium shrink-0">
-            {kpi.underMaxPct} under max
+            Historical
           </span>
         </div>
       </div>
@@ -43,15 +60,15 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
       <div className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <span className="text-xs font-mono uppercase text-outline">
-            Active Telemetry Load
+            Actual Replay Demand
           </span>
           <span className="text-xs font-medium text-secondary px-1.5 py-0.5 rounded bg-surface-container-high">
-            Normal Load
+            I-BLEND 15m
           </span>
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-on-surface">
-            {activeKw}
+            {displayActiveKw}
           </span>
           <span className="text-xs font-mono text-outline ml-1">kW</span>
         </div>
@@ -63,8 +80,8 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
             ></div>
           </div>
           <div className="text-[11px] text-outline flex justify-between gap-1">
-            <span className="truncate">{capPct}% Transformer Cap</span>
-            <span className="shrink-0">{kpi.transformerCapKw} kW Max</span>
+            <span className="truncate">Academic Building</span>
+            <span className="shrink-0 text-primary font-mono font-medium">Replay Stream</span>
           </div>
         </div>
       </div>
@@ -73,24 +90,32 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
       <div className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <span className="text-xs font-mono uppercase text-outline">
-            Predicted Unmitigated Peak
+            Predicted Demand (XGBoost)
           </span>
-          <span className="text-xs font-bold text-tertiary px-1.5 py-0.5 rounded bg-tertiary-fixed">
-            Grid Alert
+          <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+            peakStatus === 'predicted_peak'
+              ? 'bg-error-container text-error'
+              : peakStatus === 'near_peak'
+              ? 'bg-tertiary-fixed text-tertiary'
+              : 'bg-primary/10 text-primary'
+          }`}>
+            {peakStatus === 'predicted_peak' ? 'Peak Alert' : peakStatus === 'near_peak' ? 'Near Peak' : 'Below Peak'}
           </span>
         </div>
         <div className="my-2">
-          <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-tertiary">
-            {kpi.predPeakKw}
+          <span className={`text-2xl sm:text-3xl font-bold font-mono tracking-tight ${
+            peakStatus === 'predicted_peak' ? 'text-error' : peakStatus === 'near_peak' ? 'text-tertiary' : 'text-primary'
+          }`}>
+            {displayPredKw}
           </span>
           <span className="text-xs font-mono text-outline ml-1">kW</span>
         </div>
         <div className="text-[11px] text-outline flex justify-between gap-1">
-          <span className="font-bold text-tertiary truncate">
-            Window: {kpi.peakWindow}
+          <span className="font-semibold text-on-surface-variant truncate">
+            Window: {peakWindow}
           </span>
-          <span className="text-error font-medium shrink-0">
-            +{kpi.peakDeltaKw} kW delta
+          <span className="font-mono text-[10px] text-outline shrink-0">
+            Stage 3 Forecast
           </span>
         </div>
       </div>
@@ -99,22 +124,22 @@ export default function KpiRibbon({ kpi, activeKw }: KpiRibbonProps) {
       <div className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <span className="text-xs font-mono uppercase text-outline">
-            Flexible Shed Capacity
+            Potential Flexible Demand
           </span>
           <span className="text-xs font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10">
-            Ready to Shed
+            Advisory Shift
           </span>
         </div>
         <div className="my-2">
           <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-primary">
-            {kpi.flexibleShedCapKw}
+            {displayFlexKw}
           </span>
           <span className="text-xs font-mono text-outline ml-1">kW</span>
         </div>
         <div className="text-[11px] text-outline flex justify-between gap-1">
-          <span className="truncate">Thermal + EV priority</span>
+          <span className="truncate">Historical Slot Median Diff</span>
           <span className="text-primary font-bold shrink-0">
-            {kpi.flexPct} load flex
+            Stage 4 Flex
           </span>
         </div>
       </div>

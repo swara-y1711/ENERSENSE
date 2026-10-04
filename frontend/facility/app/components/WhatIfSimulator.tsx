@@ -1,6 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
+import { simulateImpact, ImpactSimulationResponse } from '../lib/api';
 
 interface WhatIfSimulatorProps {
   reductionTarget: number;
@@ -13,6 +12,9 @@ interface WhatIfSimulatorProps {
   onOpenDispatchModal: () => void;
   showToast: (msg: string, type?: 'info' | 'success') => void;
   basePeakKw?: number;
+  availableFlexKw?: number;
+  startTimestamp?: string;
+  endTimestamp?: string;
 }
 
 export default function WhatIfSimulator({
@@ -25,36 +27,54 @@ export default function WhatIfSimulator({
   onReset,
   onOpenDispatchModal,
   showToast,
-  basePeakKw = 468,
+  basePeakKw = 71.6,
+  availableFlexKw = 15.4,
+  startTimestamp,
+  endTimestamp,
 }: WhatIfSimulatorProps) {
   const [isCalculating, setIsCalculating] = useState(false);
   const [latencyMs, setLatencyMs] = useState(42);
   const [pulseBoxes, setPulseBoxes] = useState(false);
+  const [backendSim, setBackendSim] = useState<ImpactSimulationResponse | null>(null);
 
-  // Compute available capacity based on enabled subsystems
-  const availableCap =
-    (subsystems.hvac ? 45 : 0) +
-    (subsystems.ev ? 25 : 0) +
-    (subsystems.storage ? 15 : 0);
+  // Compute available capacity based on enabled subsystems or backend flexibility
+  const subsystemMultiplier =
+    (subsystems.hvac ? 0.6 : 0) +
+    (subsystems.ev ? 0.3 : 0) +
+    (subsystems.storage ? 0.1 : 0);
+  const availableCap = Number((availableFlexKw * (subsystemMultiplier || 1)).toFixed(1));
 
   // Outcome math
-  const newPeak = Math.max(260, basePeakKw - reductionTarget);
-  const peakSavedPct = ((reductionTarget / basePeakKw) * 100).toFixed(1);
-  const energyShifted = Math.round(reductionTarget * duration * 0.85);
-  const netSavings = energyShifted * 110;
-  const carbonAvoided = Math.round(energyShifted * 0.8);
+  const cappedTarget = Math.min(reductionTarget, availableCap);
+  const newPeak = Number(Math.max(20, basePeakKw - cappedTarget).toFixed(1));
+  const peakSavedPct = ((cappedTarget / (basePeakKw || 1)) * 100).toFixed(1);
+  const energyShifted = backendSim
+    ? backendSim.total_simulated_reduction_kwh
+    : Number((cappedTarget * duration * 0.25).toFixed(2));
   const isFeasible = reductionTarget <= availableCap;
 
-  const handleRunCalculation = () => {
+  const handleRunCalculation = async () => {
     setIsCalculating(true);
-    setTimeout(() => {
-      const lat = Math.floor(Math.random() * 20) + 32;
-      setLatencyMs(lat);
+    const start = startTimestamp || '2016-10-03T11:00:00+05:30';
+    const end = endTimestamp || '2016-10-03T13:00:00+05:30';
+    try {
+      const res = await simulateImpact(start, end, reductionTarget);
+      setBackendSim(res);
+      setLatencyMs(45);
       setPulseBoxes(true);
-      setIsCalculating(false);
       setTimeout(() => setPulseBoxes(false), 500);
-      showToast('Scenario simulation recalculated successfully.', 'success');
-    }, 450);
+      showToast(
+        `What-if scenario verified: ${res.total_simulated_reduction_kwh} kWh simulated reduction across ${res.total_intervals} intervals.`,
+        'success'
+      );
+    } catch {
+      setLatencyMs(32);
+      setPulseBoxes(true);
+      setTimeout(() => setPulseBoxes(false), 500);
+      showToast('Calculated local scenario estimate based on 15m intervals.', 'info');
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   return (
@@ -313,18 +333,18 @@ export default function WhatIfSimulator({
                 }`}
               >
                 <span className="text-[10px] font-mono uppercase text-outline">
-                  Net Avoided Cost
+                  Achievable Rate
                 </span>
                 <div className="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5">
-                  ₹{netSavings.toLocaleString('en-IN')}
+                  {backendSim ? `${backendSim.achievable_percentage}%` : (isFeasible ? '100%' : 'Capped')}
                 </div>
                 <span className="text-[10px] text-on-surface-variant font-medium">
-                  Avoided Surcharges
+                  {backendSim ? `${backendSim.fully_achievable_intervals}/${backendSim.total_intervals} intervals` : 'Stage 6 Capped'}
                 </span>
               </div>
             </div>
 
-            {/* Scope 2 Carbon Card */}
+            {/* Simulation Advisory Notice */}
             <div
               className={`p-3 bg-surface-container-lowest rounded-xl border border-surface-container-high flex items-center justify-between mb-4 ${
                 pulseBoxes ? 'pulse-glow' : ''
@@ -332,22 +352,22 @@ export default function WhatIfSimulator({
             >
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[20px] shrink-0">
-                  eco
+                  verified
                 </span>
                 <div>
                   <span className="text-xs font-bold text-on-surface block">
-                    Scope 2 Carbon Avoided
+                    Simulation Advisory Notice
                   </span>
-                  <span className="text-[10px] text-outline font-mono">
-                    0.80 kg CO₂e / kWh grid factor
+                  <span className="text-[10px] text-outline">
+                    {backendSim?.notice || 'What-if scenario only. Not physical equipment control. No monetary calculations.'}
                   </span>
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <div className="text-base font-bold font-mono text-primary">
-                  {carbonAvoided} kg
+                <div className="text-xs font-bold font-mono text-primary">
+                  {duration}h Window
                 </div>
-                <span className="text-[10px] text-outline">CO₂e Mitigation</span>
+                <span className="text-[10px] text-outline">Historical Replay</span>
               </div>
             </div>
           </div>

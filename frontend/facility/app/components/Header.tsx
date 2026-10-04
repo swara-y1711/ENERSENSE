@@ -1,6 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { BUILDINGS, BuildingOption, NOTIFICATIONS, NotificationItem } from '../data/facilityData';
 
 interface HeaderProps {
@@ -11,6 +10,9 @@ interface HeaderProps {
   showToast: (msg: string, type?: 'info' | 'success') => void;
   activeRole: 'FM' | 'Occupant';
   onSelectRole: (role: 'FM' | 'Occupant') => void;
+  peakStatus?: string;
+  peakWindow?: string;
+  isBackendOnline?: boolean;
 }
 
 export default function Header({
@@ -21,6 +23,9 @@ export default function Header({
   showToast,
   activeRole,
   onSelectRole,
+  peakStatus = 'below_peak',
+  peakWindow = '2H',
+  isBackendOnline = true,
 }: HeaderProps) {
   const [bldgMenuOpen, setBldgMenuOpen] = useState(false);
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);
@@ -107,14 +112,32 @@ export default function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-        {/* Grid Stress Banner */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1 bg-tertiary-fixed/40 rounded-lg text-xs font-semibold text-tertiary">
-          <span className="h-2 w-2 rounded-full bg-tertiary animate-ping"></span>
-          <span>GRID STRESS: MODERATE • PEAK WINDOW IN 2H</span>
+        {/* Grid Stress Banner / Replay Status */}
+        <div className="hidden xl:flex items-center gap-2">
+          {!isBackendOnline ? (
+            <div className="px-3 py-1 bg-surface-container text-outline rounded-lg text-xs font-mono font-medium">
+              BACKEND: DEMO REPLAY
+            </div>
+          ) : peakStatus === 'predicted_peak' ? (
+            <div className="px-3 py-1 bg-error/10 text-error border border-error/20 rounded-lg text-xs font-semibold flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-error animate-ping"></span>
+              <span>GRID ALERT: PREDICTED PEAK • LOAD REVIEW ACTIVE</span>
+            </div>
+          ) : peakStatus === 'near_peak' ? (
+            <div className="px-3 py-1 bg-tertiary-fixed/40 text-tertiary rounded-lg text-xs font-semibold flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-tertiary animate-pulse"></span>
+              <span>GRID STRESS: NEAR-PEAK • WINDOW {peakWindow}</span>
+            </div>
+          ) : (
+            <div className="px-3 py-1 bg-primary/10 text-primary rounded-lg text-xs font-semibold flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-primary"></span>
+              <span>GRID NORMAL • HISTORICAL REPLAY (OCT 2016)</span>
+            </div>
+          )}
         </div>
 
         {/* Role Switcher */}
-        <div className="flex bg-surface-container-high p-0.5 sm:p-1 rounded-lg">
+        <div className="flex bg-surface-container-high p-0.5 sm:p-1 rounded-lg items-center">
           <button
             className={`px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs transition-colors cursor-pointer ${
               activeRole === 'FM'
@@ -128,19 +151,25 @@ export default function Header({
           >
             FM
           </button>
-          <button
+
+          <Link
+            href="/occupant"
             className={`px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs transition-colors flex items-center gap-1 cursor-pointer ${
               activeRole === 'Occupant'
                 ? 'font-semibold bg-primary text-on-primary shadow-xs'
                 : 'font-medium text-outline hover:text-on-surface'
             }`}
-            onClick={() => {
-              onSelectRole('Occupant');
-              onOpenOccupantModal();
-            }}
           >
             <span>Occupant</span>
             <span className="hidden sm:inline">View</span>
+          </Link>
+
+          <button
+            title="Preview Occupant Modal"
+            className="p-1 rounded text-outline hover:text-on-surface ml-0.5"
+            onClick={onOpenOccupantModal}
+          >
+            <span className="material-symbols-outlined text-[14px]">preview</span>
           </button>
         </div>
 

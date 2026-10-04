@@ -1,22 +1,31 @@
-'use client';
-
 import React, { useState } from 'react';
+import { RecommendationItem, WeatherResponse } from '../lib/api';
 
 interface OccupantModalProps {
   isOpen: boolean;
   onClose: () => void;
   showToast: (msg: string, type?: 'info' | 'success') => void;
+  recommendation?: RecommendationItem | null;
+  weather?: WeatherResponse | null;
+  expectedWindow?: string | null;
 }
 
 export default function OccupantModal({
   isOpen,
   onClose,
   showToast,
+  recommendation,
+  weather,
+  expectedWindow,
 }: OccupantModalProps) {
   const [temp, setTemp] = useState(24.0);
   const [evShifted, setEvShifted] = useState(true);
 
   if (!isOpen) return null;
+
+  const displayWindow = expectedWindow || recommendation?.expected_window || '11:15 - 13:00';
+  const displayAction = recommendation?.action || 'Consider shifting flexible loads outside the expected peak window. If EV charging is available, consider charging after the expected peak.';
+  const weatherTemp = weather?.weather.temperature_c;
 
   const handleTempUp = () => {
     if (temp < 26.0) {
@@ -39,7 +48,7 @@ export default function OccupantModal({
     setEvShifted(checked);
     showToast(
       `Stall #14 EV charging: ${
-        checked ? 'Shifted (Peak Shaving Armed)' : 'Active (Charging immediately)'
+        checked ? 'Shifted (Peak Window Deferred)' : 'Active (Charging immediately)'
       }`
     );
   };
@@ -64,9 +73,11 @@ export default function OccupantModal({
             </div>
             <div>
               <h3 className="text-xs font-bold text-on-surface leading-tight">
-                Occupant Eco-Portal Simulator
+                Occupant Advisory Preview
               </h3>
-              <p className="text-[10px] text-outline font-mono">Pod 4B • Floor 3 Spine</p>
+              <p className="text-[10px] text-outline font-mono">
+                Historical Replay • {weatherTemp ? `${weatherTemp}°C Outdoor` : 'October 2016'}
+              </p>
             </div>
           </div>
           <button
@@ -83,14 +94,14 @@ export default function OccupantModal({
           {/* Peak Event Alert Pill */}
           <div className="p-2.5 rounded-xl bg-tertiary-fixed/30 border-l-2 border-tertiary flex items-start gap-2">
             <span className="material-symbols-outlined text-tertiary text-[18px] mt-0.5">
-              energy_savings_leaf
+              crisis_alert
             </span>
             <div>
               <span className="font-bold text-xs text-tertiary block">
-                Shift &amp; Save Window (18:00 - 21:00)
+                Peak Window: {displayWindow}
               </span>
-              <span className="text-[10px] text-on-surface-variant leading-tight block">
-                Facility peak event active. Opt-in rewards: +150 GreenCredits.
+              <span className="text-[10px] text-on-surface-variant leading-tight block mt-0.5">
+                {displayAction}
               </span>
             </div>
           </div>
