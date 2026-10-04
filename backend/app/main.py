@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.tariff import router as tariff_router
 from app.api.replay import router as replay_router
+from app.api.weather import router as weather_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -34,6 +35,9 @@ app.include_router(tariff_router, prefix="/api")
 
 # Include Historical Telemetry Replay Router under /api
 app.include_router(replay_router, prefix="/api")
+
+# Include Open-Meteo Weather Router under /api
+app.include_router(weather_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])

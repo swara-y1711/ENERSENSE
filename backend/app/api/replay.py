@@ -14,12 +14,15 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.services.replay_service import (
+    CombinedContextRecord,
     CombinedReplayRecord,
     ReplayRecord,
     ReplayStatus,
+    evaluate_telemetry_context,
     evaluate_telemetry_tariff,
     replay_service,
 )
+from app.services.weather_service import WeatherServiceError
 
 router = APIRouter(prefix="/replay", tags=["Replay"])
 
@@ -92,3 +95,35 @@ async def get_current_combined_telemetry(
         record = replay_service.get_current_record()
 
     return evaluate_telemetry_tariff(record)
+
+
+@router.get("/current-context", response_model=CombinedContextRecord)
+async def get_current_context_telemetry(
+    timestamp: Optional[str] = Query(
+        None,
+        description="Optional ISO timestamp to query a specific October 2016 reading. "
+                    "If omitted, the current replay cursor reading is used.",
+    )
+):
+    """
+    Combined context endpoint (Stage 2):
+    Returns I-BLEND historical telemetry + October ToD tariff + Open-Meteo historical weather.
+    """
+    if timestamp:
+        record = replay_service.get_record_by_timestamp(timestamp)
+        if not record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No October 2016 telemetry record found matching timestamp '{timestamp}'.",
+            )
+    else:
+        record = replay_service.get_current_record()
+
+    try:
+        return evaluate_telemetry_context(record)
+    except WeatherServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Weather service unavailable: {str(exc)}",
+        )
+

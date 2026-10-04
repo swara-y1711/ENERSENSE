@@ -258,3 +258,50 @@ def evaluate_telemetry_tariff(
         replay=rec_obj.replay,
         tariff=tariff_summary,
     )
+
+
+class CombinedContextRecord(BaseModel):
+    """Combined telemetry, weather context, and tariff evaluation for demo ingestion."""
+    timestamp: str = Field(..., description="ISO 8601 timestamp in Asia/Kolkata (+05:30)")
+    building_name: str = Field("Academic Building", description="Building identifier")
+    demand_kw: float = Field(..., description="Power demand in kW")
+    source: str = Field("I-BLEND", description="Telemetry data source")
+    mode: str = Field("historical_replay", description="Replay mode")
+    replay: bool = Field(True, description="Replay flag")
+    weather: Any = Field(..., description="Historical weather observation from Open-Meteo")
+    tariff: ReplayTariffSummary = Field(..., description="ToD tariff period breakdown")
+
+
+def evaluate_telemetry_context(
+    record: Union[ReplayRecord, Dict[str, Any]],
+    tariff_config: Optional[TariffConfig] = None,
+) -> CombinedContextRecord:
+    """
+    Combines an I-BLEND telemetry record with both October ToD tariff evaluation
+    and historical Open-Meteo weather context.
+    
+    Reuses existing Stage 1 tariff evaluation and Stage 2 weather service.
+    """
+    from app.services.weather_service import WeatherContextSummary, weather_service
+
+    combined_tariff = evaluate_telemetry_tariff(record, tariff_config)
+    weather_resp = weather_service.get_weather_for_timestamp(combined_tariff.timestamp)
+
+    weather_summary = WeatherContextSummary(
+        temperature_c=weather_resp.weather.temperature_c,
+        relative_humidity_percent=weather_resp.weather.relative_humidity_percent,
+        rainfall_mm=weather_resp.weather.rainfall_mm,
+        source=weather_resp.source,
+    )
+
+    return CombinedContextRecord(
+        timestamp=combined_tariff.timestamp,
+        building_name=combined_tariff.building_name,
+        demand_kw=combined_tariff.demand_kw,
+        source=combined_tariff.source,
+        mode=combined_tariff.mode,
+        replay=combined_tariff.replay,
+        weather=weather_summary,
+        tariff=combined_tariff.tariff,
+    )
+
