@@ -53,7 +53,7 @@ export default function MicroClimateCard({
             {currentTemp.toFixed(1)}°C
           </span>
           <span className="font-label-sm text-label-sm text-on-surface-variant">
-            Telemetry Replay
+            Open-Meteo Historical
           </span>
         </div>
       </div>

@@ -31,23 +31,11 @@ async def health_check():
 async def db_health_check():
     """
     Database health-check endpoint.
-    Performs a SELECT read on the 'buildings' table to verify connection via Supabase or SQLAlchemy.
+    Performs a SELECT read on the 'buildings' table via the same SQLAlchemy
+    persistence layer used by /api/db/status and impact simulation writes.
+    Falls back to Supabase REST only if the SQLAlchemy path is unavailable.
     """
-    # 1. Try Supabase Python SDK client first if configured
-    supabase = get_supabase_client()
-    if supabase:
-        try:
-            response = supabase.table("buildings").select("*", count="exact").execute()
-            count = response.count if response.count is not None else len(response.data)
-            return {
-                "status": "ok",
-                "database": "connected",
-                "buildings_count": count,
-            }
-        except Exception as e:
-            logger.warning(f"Supabase REST query failed, trying SQLAlchemy fallback: {e}")
-
-    # 2. Try SQLAlchemy database connection
+    # 1. Prefer SQLAlchemy (authoritative for seed + impact persistence)
     try:
         from app.db.database import SessionLocal, init_db
         from app.db.models import Building
@@ -63,8 +51,23 @@ async def db_health_check():
         finally:
             db.close()
     except Exception as e:
-        logger.error(f"Database query to buildings table failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection error: Failed to query buildings table.",
-        )
+        logger.warning(f"SQLAlchemy buildings query failed, trying Supabase REST: {e}")
+
+    # 2. Fallback: Supabase Python SDK if configured
+    supabase = get_supabase_client()
+    if supabase:
+        try:
+            response = supabase.table("buildings").select("*", count="exact").execute()
+            count = response.count if response.count is not None else len(response.data)
+            return {
+                "status": "ok",
+                "database": "connected",
+                "buildings_count": count,
+            }
+        except Exception as e:
+            logger.error(f"Supabase REST buildings query also failed: {e}")
+
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Database connection error: Failed to query buildings table.",
+    )

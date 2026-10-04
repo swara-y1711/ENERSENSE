@@ -97,6 +97,16 @@ export default function OccupantDashboard() {
           }));
         }
 
+        // 1b. Process Open-Meteo historical weather (was fetched but unused)
+        if (weatherRes.status === 'fulfilled' && weatherRes.value?.weather) {
+          hasData = true;
+          const tempC = weatherRes.value.weather.temperature_c;
+          if (typeof tempC === 'number' && Number.isFinite(tempC)) {
+            setCurrentTemp(tempC);
+            setProfile((prev) => ({ ...prev, currentTemp: tempC }));
+          }
+        }
+
         // 2. Process Recommendations
         if (recsRes.status === 'fulfilled' && recsRes.value) {
           hasData = true;
@@ -118,6 +128,17 @@ export default function OccupantDashboard() {
                 ? `${occupantRec.action.substring(0, 48)}...`
                 : occupantRec.action,
             });
+          } else {
+            // Avoid leaving static Stitch peak copy when backend reports no advisory
+            setChallenge({
+              title: 'No peak advisory at the current replay interval. Continue normal flexible-load awareness.',
+              timeWindow: bundle.expected_window || (bundle.is_weekend ? 'Weekend / Off-Peak Context' : 'Current Replay Window'),
+              rebateText: bundle.potential_flexible_kw > 0
+                ? `${bundle.potential_flexible_kw.toFixed(1)} kW Flex`
+                : 'Low Flex Estimate',
+              gridRelief: 'Standard Relief',
+              evActionLabel: 'Review Replay Energy Context',
+            });
           }
         }
 
@@ -132,6 +153,14 @@ export default function OccupantDashboard() {
               ...prev,
               timeWindow: `${startH} – ${endH}`,
             }));
+          } else if (!exp.is_peak_expected) {
+            setChallenge((prev) => {
+              // Replace only the static Stitch fallback window if it was never updated
+              const isStaticFallback = prev.timeWindow === INITIAL_PEAK_CHALLENGE.timeWindow;
+              return isStaticFallback
+                ? { ...prev, timeWindow: 'No peak expected in next window' }
+                : prev;
+            });
           }
         }
 
