@@ -25,7 +25,11 @@ app = FastAPI(
 @app.on_event("startup")
 def on_startup():
     """Initialize database tables on application startup."""
-    init_db()
+    try:
+        init_db()
+        print("Database initialized successfully.")
+    except Exception as e:
+        print(f"Failed to initialize database: {e}")
 
 
 # CORS Configuration for local Next.js frontend and production URLs

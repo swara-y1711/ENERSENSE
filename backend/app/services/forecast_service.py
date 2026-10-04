@@ -92,8 +92,13 @@ class DemandForecastService:
         self.metadata: Dict[str, Any] = {}
         self._feature_store: Dict[str, Dict[str, Any]] = {}
         
-        self._load_model_artifacts()
-        self._initialize_feature_store()
+        try:
+            self._load_model_artifacts()
+            self._initialize_feature_store()
+        except FileNotFoundError as e:
+            print(f"Could not load ML models on init, artifacts missing: {e}")
+        except Exception as e:
+            print(f"Error loading ML models on init: {e}")
 
     def _load_model_artifacts(self):
         """Loads serialized XGBoost model and metadata from disk."""

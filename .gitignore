@@ -26,3 +26,4 @@ Thumbs.db
 
 # Local database
 backend/enersense.db
+.vercel

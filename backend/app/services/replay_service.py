@@ -82,7 +82,12 @@ class IBlendReplayService:
         self._records: List[ReplayRecord] = []
         self._index_by_timestamp: Dict[str, int] = {}
         self._current_index: int = 0
-        self._load_records(csv_path)
+        try:
+            self._load_records(csv_path)
+        except FileNotFoundError as e:
+            print(f"Could not load CSV on init, dataset missing: {e}")
+        except Exception as e:
+            print(f"Error loading CSV on init: {e}")
 
     def _find_csv(self, override_path: Optional[Path] = None) -> Path:
         """Locates the processed CSV file across potential working directories."""

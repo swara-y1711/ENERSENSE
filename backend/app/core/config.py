@@ -18,7 +18,7 @@ class Settings(BaseModel):
 
     # Database URL (PostgreSQL / Supabase / SQLite fallback)
     DATABASE_URL: str = Field(
-        default_factory=lambda: os.getenv("DATABASE_URL", "sqlite:///./enersense.db")
+        default_factory=lambda: os.getenv("DATABASE_URL", "sqlite:////tmp/enersense.db")
     )
 
     # Frontend URL for CORS
@@ -36,6 +36,7 @@ class Settings(BaseModel):
             "http://127.0.0.1:3001",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "https://enersense-ten.vercel.app",
         ]
     )
 
