@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #006948;
+  --color-primary-container: #00855d;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #f5fff7;
+  --color-secondary: #006591;
+  --color-tertiary: #825100;
+  --color-tertiary-fixed: #ffddb8;
+  --color-surface: #faf8ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f3ff;
+  --color-surface-container: #eaedff;
+  --color-surface-container-high: #e2e7ff;
+  --color-on-surface: #131b2e;
+  --color-on-surface-variant: #3d4a42;
+  --color-outline: #6d7a72;
+  --color-outline-variant: #bccac0;
+  --color-error: #ba1a1a;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f2f3ff;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #bccac0;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6d7a72;
+}
+
+.pulse-glow {
+  animation: pulseGlow 0.5s ease-out;
+}
+
+@keyframes pulseGlow {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.015); filter: brightness(1.04); }
+  100% { transform: scale(1); }
+}

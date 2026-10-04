@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>ENERSENSE - Facility Manager Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: '#006948',
+            'primary-container': '#00855d',
+            'on-primary': '#ffffff',
+            'on-primary-container': '#f5fff7',
+            secondary: '#006591',
+            tertiary: '#825100',
+            'tertiary-fixed': '#ffddb8',
+            surface: '#faf8ff',
+            'surface-container-lowest': '#ffffff',
+            'surface-container-low': '#f2f3ff',
+            'surface-container': '#eaedff',
+            'surface-container-high': '#e2e7ff',
+            'on-surface': '#131b2e',
+            'on-surface-variant': '#3d4a42',
+            outline: '#6d7a72',
+            'outline-variant': '#bccac0',
+            error: '#ba1a1a'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    /* Smooth custom scrollbars */
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f2f3ff;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #bccac0;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #6d7a72;
+    }
+    .pulse-glow { animation: pulseGlow 0.5s ease-out; }
+    @keyframes pulseGlow {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.015); filter: brightness(1.04); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="bg-surface font-sans text-on-surface antialiased overflow-x-hidden min-h-screen flex flex-col">
+<!-- Mobile Sidebar Overlay Backdrop -->
+<div class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden transition-opacity duration-300" id="mobile-sidebar-backdrop"></div>
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 z-40 h-16 bg-surface-container-lowest/95 backdrop-blur-md border-b border-surface-container-high px-3 sm:px-6 flex items-center justify-between gap-2">
+<!-- Left Logo & Hamburger & Building Selector -->
+<div class="flex items-center gap-2 sm:gap-4 lg:gap-6 min-w-0">
+<!-- Hamburger Menu Button (Mobile & Tablet) -->
+<button aria-label="Toggle navigation menu" class="lg:hidden p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low transition-colors flex items-center justify-center shrink-0" id="mobile-menu-btn">
+<span class="material-symbols-outlined text-[24px]">menu</span>
+</button>
+<!-- Logo -->
+<div class="flex items-center gap-2 cursor-pointer shrink-0" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+<div class="w-8 h-8 rounded-lg bg-on-surface flex items-center justify-center text-primary font-bold text-base sm:text-lg">⚡</div>
+<span class="text-lg sm:text-xl font-bold tracking-tight text-on-surface">ENER<span class="text-primary">SENSE</span></span>
+</div>
+<div class="hidden md:block h-5 w-px bg-surface-container-high"></div>
+<!-- Building Selector -->
+<div class="relative min-w-0">
+<button class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-surface-container-low hover:bg-surface-container rounded-lg text-xs sm:text-sm font-medium transition-colors max-w-[140px] sm:max-w-[240px] md:max-w-xs truncate" id="bldg-dropdown-btn">
+<span class="material-symbols-outlined text-[16px] sm:text-[18px] text-primary shrink-0">apartment</span>
+<span class="truncate" id="active-bldg-label">Block B (Spine)</span>
+<span class="material-symbols-outlined text-[16px] text-outline shrink-0" id="bldg-chevron">expand_more</span>
+</button>
+<div class="hidden absolute top-full left-0 mt-1.5 w-64 sm:w-72 bg-surface-container-lowest rounded-xl shadow-xl border border-surface-container-high p-2 z-50" id="bldg-menu">
+<button class="bldg-opt w-full text-left p-2 rounded-lg bg-primary/10 text-primary font-semibold text-xs sm:text-sm flex justify-between items-center" data-name="Olympus Tower Tech Park - Block B">
+<span class="truncate">Block B (Spine)</span>
+<span class="font-mono text-xs shrink-0 ml-2">342 kW</span>
+</button>
+<button class="bldg-opt w-full text-left p-2 rounded-lg hover:bg-surface-container text-on-surface font-medium text-xs sm:text-sm flex justify-between items-center" data-name="Olympus Tower Tech Park - Block A">
+<span class="truncate">Block A (North)</span>
+<span class="font-mono text-xs shrink-0 ml-2">412 kW</span>
+</button>
+<button class="bldg-opt w-full text-left p-2 rounded-lg hover:bg-surface-container text-on-surface font-medium text-xs sm:text-sm flex justify-between items-center" data-name="Olympus Tower Tech Park - Block C">
+<span class="truncate">Block C (R&amp;D)</span>
+<span class="font-mono text-xs shrink-0 ml-2">288 kW</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Controls -->
+<div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+<div class="hidden xl:flex items-center gap-2 px-3 py-1 bg-tertiary-fixed/40 rounded-lg text-xs font-semibold text-tertiary">
+<span class="h-2 w-2 rounded-full bg-tertiary animate-ping"></span>
+<span>GRID STRESS: MODERATE • PEAK WINDOW IN 2H</span>
+</div>
+<!-- Role Switcher -->
+<div class="flex bg-surface-container-high p-0.5 sm:p-1 rounded-lg">
+<button class="px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-semibold bg-primary text-on-primary shadow-xs transition-colors" id="btn-role-facility">FM</button>
+<button class="px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-medium text-outline hover:text-on-surface transition-colors flex items-center gap-1" id="btn-role-occupant">
+<span>Occupant</span>
+<span class="hidden sm:inline">View</span>
+</button>
+</div>
+<!-- Notifications -->
+<div class="relative">
+<button aria-label="Notifications" class="p-1.5 sm:p-2 rounded-lg hover:bg-surface-container-low text-outline hover:text-on-surface relative" id="notif-btn">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1 right-1 h-2 w-2 rounded-full bg-error" id="notif-badge"></span>
+</button>
+<div class="hidden absolute right-0 top-full mt-2 w-72 sm:w-80 bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-container-high p-3 z-50" id="notif-menu">
+<div class="flex items-center justify-between pb-2 border-b border-surface-container-high">
+<span class="text-xs uppercase font-bold text-on-surface">Grid Alerts (2)</span>
+<button class="text-xs text-primary font-medium hover:underline" id="notif-clear-btn">Clear all</button>
+</div>
+<div class="mt-2 space-y-2 text-xs">
+<div class="p-2 rounded-lg bg-tertiary-fixed/30 border-l-2 border-tertiary">
+<span class="font-bold text-tertiary block">BESCOM Tariff Window</span>
+<span class="text-on-surface-variant">2.25x surcharge active from 18:00 to 21:00 IST.</span>
+</div>
+<div class="p-2 rounded-lg bg-primary/10 border-l-2 border-primary">
+<span class="font-bold text-primary block">AHU-4 Pre-Cooling Engaged</span>
+<span class="text-on-surface-variant">Cooling loop throttled -15% in anticipation.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- User avatar -->
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs shrink-0">MV</div>
+<div class="hidden lg:block text-left">
+<div class="text-xs font-semibold leading-tight">Marcus Vance</div>
+<div class="text-[10px] text-outline">Lead Facility Eng.</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Sidebar (Persistent on desktop >=1024px, drawer on mobile/tablet) -->
+<aside class="fixed top-16 bottom-0 left-0 w-64 sm:w-60 bg-surface-container-lowest border-r border-surface-container-high p-4 flex flex-col justify-between z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto" id="sidebar-drawer">
+<div class="space-y-6">
+<div class="flex items-center justify-between lg:hidden pb-2 border-b border-surface-container-high">
+<span class="text-xs font-bold text-on-surface">Navigation</span>
+<button aria-label="Close menu" class="p-1 rounded-md text-outline hover:text-on-surface" id="sidebar-close-btn">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div>
+<span class="text-[11px] font-mono uppercase text-outline px-3 tracking-wider">Operations</span>
+<nav class="mt-2 space-y-1" id="nav-operations">
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary shadow-xs" data-page="Overview">
+<span class="material-symbols-outlined text-[18px]">grid_view</span> Overview
+          </button>
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="Live Telemetry">
+<span class="material-symbols-outlined text-[18px]">electric_meter</span> Live Telemetry
+          </button>
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="Demand Response">
+<span class="material-symbols-outlined text-[18px]">bolt</span> Demand Response
+          </button>
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="Human Presence">
+<span class="material-symbols-outlined text-[18px]">groups</span> Human Presence
+          </button>
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="HVAC Control">
+<span class="material-symbols-outlined text-[18px]">thermostat</span> HVAC Control
+          </button>
+</nav>
+</div>
+<div>
+<span class="text-[11px] font-mono uppercase text-outline px-3 tracking-wider">Governance</span>
+<nav class="mt-2 space-y-1">
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="ESG &amp; Carbon">
+<span class="material-symbols-outlined text-[18px]">eco</span> ESG &amp; Carbon
+          </button>
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="Alerts &amp; Faults">
+<span class="material-symbols-outlined text-[18px]">warning</span> Alerts &amp; Faults
+          </button>
+<button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface" data-page="Facility Config">
+<span class="material-symbols-outlined text-[18px]">settings</span> Facility Config
+          </button>
+</nav>
+</div>
+</div>
+<div class="mt-6 pt-4 border-t border-surface-container-high/60">
+<div class="p-3 bg-surface-container-low rounded-xl flex items-center justify-between cursor-pointer hover:bg-surface-container transition-colors" onclick="showToast('Modbus &amp; BACnet gateway health: 142/142 telemetry circuits verified.')">
+<div>
+<div class="text-[10px] font-mono uppercase text-outline">Subsystem Health</div>
+<div class="text-xs font-bold text-primary">99.82% Optimal</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[20px]">verified</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="w-full lg:pl-60 pt-16 min-h-screen p-3 sm:p-5 md:p-6 transition-all duration-300">
+<div class="max-w-7xl mx-auto space-y-5 md:space-y-6">
+<!-- Breadcrumbs & Timeframe Bar -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-surface-container-lowest/60 p-3 rounded-xl border border-surface-container-high/60 sm:bg-transparent sm:p-0 sm:border-0">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-outline font-medium">
+<span>Facilities</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span>Bengaluru Tech Zone</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="font-bold text-on-surface truncate" id="crumb-bldg">Olympus Tower - Block B</span>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[10px] font-semibold cursor-pointer shrink-0" onclick="showToast('Sensors healthy: 142 BACnet/IP nodes connected.')">SENSORS (142/142)</span>
+</div>
+<!-- Controls: Timeframe Pills & Action Buttons -->
+<div class="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
+<div class="flex bg-surface-container-low p-1 rounded-lg shrink-0" id="tf-group">
+<button class="tf-btn px-2.5 sm:px-3 py-1 rounded-md text-xs font-semibold bg-primary text-on-primary shadow-xs transition-all" data-tf="live">Live (15m)</button>
+<button class="tf-btn px-2.5 sm:px-3 py-1 rounded-md text-xs font-medium text-outline hover:text-on-surface transition-all" data-tf="yesterday">Yesterday</button>
+<button class="tf-btn px-2.5 sm:px-3 py-1 rounded-md text-xs font-medium text-outline hover:text-on-surface transition-all" data-tf="7d">7D Avg</button>
+<button class="tf-btn px-2.5 sm:px-3 py-1 rounded-md text-xs font-medium text-outline hover:text-on-surface transition-all" data-tf="custom">Custom</button>
+</div>
+<button class="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-surface-container-lowest border border-surface-container-high hover:bg-surface-container-low rounded-lg text-xs font-semibold shadow-xs transition-colors" id="export-audit-btn">
+<span class="material-symbols-outlined text-[16px] text-outline">download</span>
+<span class="hidden xs:inline">Export Audit</span>
+</button>
+<div class="shrink-0 flex items-center gap-1.5 px-2 py-1 bg-surface-container-lowest rounded-lg border border-surface-container-high text-xs font-mono text-outline">
+<span class="h-2 w-2 rounded-full bg-primary animate-pulse" id="heartbeat-dot"></span>
+<span class="text-[11px]" id="heartbeat-text">200ms</span>
+</div>
+</div>
+</div>
+<!-- KPI Ribbon (Fluid 1 -> 2 -> 4 cols) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+<!-- 1. Today's Cumulative -->
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<span class="text-xs font-mono uppercase text-outline">Today's Cumulative</span>
+<span class="text-xs font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10" id="kpi-cum-delta">+4.2%</span>
+</div>
+<div class="my-2">
+<span class="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-on-surface" id="kpi-cumulative">4,820</span>
+<span class="text-xs font-mono text-outline">kWh</span>
+</div>
+<div class="text-[11px] text-outline flex justify-between gap-1">
+<span class="truncate">Baseline: 5,100 kWh</span>
+<span class="text-primary font-medium shrink-0">-5.5% under max</span>
+</div>
+</div>
+<!-- 2. Active Load -->
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<span class="text-xs font-mono uppercase text-outline">Active Telemetry Load</span>
+<span class="text-xs font-medium text-secondary px-1.5 py-0.5 rounded bg-surface-container-high">Normal Load</span>
+</div>
+<div class="my-2">
+<span class="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-on-surface" id="kpi-active-kw">343</span>
+<span class="text-xs font-mono text-outline">kW</span>
+</div>
+<div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mb-1">
+<div class="h-full bg-secondary transition-all duration-500" id="tx-bar" style="width: 69%;"></div>
+</div>
+<div class="text-[11px] text-outline flex justify-between gap-1">
+<span class="truncate" id="tx-label">68% Transformer Cap</span>
+<span class="shrink-0">500 kW Max</span>
+</div>
+</div>
+</div>
+<!-- 3. Predicted Peak -->
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<span class="text-xs font-mono uppercase text-outline">Predicted Unmitigated Peak</span>
+<span class="text-xs font-bold text-tertiary px-1.5 py-0.5 rounded bg-tertiary-fixed">Grid Alert</span>
+</div>
+<div class="my-2">
+<span class="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-tertiary" id="kpi-pred-peak">468</span>
+<span class="text-xs font-mono text-outline">kW</span>
+</div>
+<div class="text-[11px] text-outline flex justify-between gap-1">
+<span class="font-bold text-tertiary truncate">Window: 18:00 – 21:00</span>
+<span class="text-error font-medium shrink-0">+92 kW delta</span>
+</div>
+</div>
+<!-- 4. Flexible Capacity -->
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<span class="text-xs font-mono uppercase text-outline">Flexible Shed Capacity</span>
+<span class="text-xs font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10">Ready to Shed</span>
+</div>
+<div class="my-2">
+<span class="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-primary" id="kpi-shed-cap">85</span>
+<span class="text-xs font-mono text-outline">kW</span>
+</div>
+<div class="text-[11px] text-outline flex justify-between gap-1">
+<span class="truncate">Thermal + EV priority</span>
+<span class="text-primary font-bold shrink-0" id="kpi-flex-pct">24.9% load flex</span>
+</div>
+</div>
+</div>
+<!-- Main Row: Chart & Submeters (Fluid stack: 1 col on mobile/tablet, 12 cols on desktop) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
+<!-- Demand Profile Chart (lg:col-span-8) -->
+<div class="lg:col-span-8 bg-surface-container-lowest p-4 sm:p-5 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between overflow-hidden">
+<div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+<div>
+<div class="flex flex-wrap items-center gap-2">
+<h2 class="text-sm sm:text-base font-bold text-on-surface">Demand Profile: Baseline vs Gridwise Scenario</h2>
+<span class="px-2 py-0.5 bg-surface-container-high rounded text-[10px] font-mono uppercase text-outline font-semibold">15m Telemetry</span>
+</div>
+<p class="text-xs text-outline mt-0.5">Automated peak shaving with proactive pre-cooling anticipation</p>
+</div>
+<!-- Filter Pills (Scrollable on small mobile) -->
+<div class="flex bg-surface-container-low p-1 rounded-lg self-start sm:self-auto overflow-x-auto max-w-full custom-scrollbar" id="chart-filters">
+<button class="filter-pill shrink-0 px-2.5 py-1 rounded text-xs font-semibold bg-surface-container-lowest text-on-surface shadow-xs transition-all" data-circuit="all">All Circuits</button>
+<button class="filter-pill shrink-0 px-2.5 py-1 rounded text-xs font-medium text-outline hover:text-on-surface transition-all" data-circuit="hvac">HVAC</button>
+<button class="filter-pill shrink-0 px-2.5 py-1 rounded text-xs font-medium text-outline hover:text-on-surface transition-all" data-circuit="ev">EV Fleet</button>
+<button class="filter-pill shrink-0 px-2.5 py-1 rounded text-xs font-medium text-outline hover:text-on-surface transition-all" data-circuit="aux">Aux/Lights</button>
+</div>
+</div>
+<!-- Interactive Legend & Shaved Callout -->
+<div class="flex flex-wrap items-center justify-between gap-2 pb-2 text-xs">
+<div class="flex flex-wrap items-center gap-3 sm:gap-4">
+<button class="flex items-center gap-1.5 hover:opacity-75 transition-opacity cursor-pointer" id="toggle-base-curve">
+<span class="w-3 h-0.5 bg-outline border-b border-dashed border-outline"></span>
+<span class="text-outline font-medium text-[11px] sm:text-xs" id="lbl-base">Unmitigated Baseline</span>
+</button>
+<button class="flex items-center gap-1.5 hover:opacity-75 transition-opacity cursor-pointer" id="toggle-grid-curve">
+<span class="w-3 h-1 bg-primary rounded-full"></span>
+<span class="text-primary font-bold text-[11px] sm:text-xs" id="lbl-grid">Predicted Gridwise</span>
+</button>
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 bg-tertiary-fixed/80 rounded"></span>
+<span class="text-tertiary font-medium text-[11px] sm:text-xs">Peak Window (18-21h)</span>
+</div>
+</div>
+<div class="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold font-mono" id="peak-callout-badge">↓ -45 kW Peak Shaved at 19:15</div>
+</div>
+<!-- SVG Chart Viewport with Smooth Horizontal Scroll on Very Small Screens -->
+<div class="relative w-full overflow-x-auto custom-scrollbar my-2">
+<div class="relative min-w-[580px] sm:min-w-full h-64 sm:h-72 cursor-crosshair select-none" id="chart-viewport">
+<svg class="w-full h-full" id="svg-chart" preserveaspectratio="none" viewbox="0 0 800 300">
+<defs>
+<lineargradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#00855d" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#00855d" stop-opacity="0.0"></stop>
+</lineargradient>
+</defs>
+<!-- Grid Lines -->
+<line stroke="#eaedff" stroke-width="1" x1="0" x2="800" y1="60" y2="60"></line>
+<line stroke="#eaedff" stroke-width="1" x1="0" x2="800" y1="130" y2="130"></line>
+<line stroke="#eaedff" stroke-width="1" x1="0" x2="800" y1="200" y2="200"></line>
+<line stroke="#eaedff" stroke-width="1" x1="0" x2="800" y1="260" y2="260"></line>
+<!-- Peak Tariff Highlight Area -->
+<rect fill="#ffddb8" fill-opacity="0.4" height="240" rx="4" width="100" x="600" y="20"></rect>
+<text fill="#825100" font-family="JetBrains Mono" font-size="10" font-weight="600" text-anchor="middle" x="650" y="38">PEAK TARIFF</text>
+<!-- Pre-cooling Highlight Area -->
+<rect fill="#dae2fd" fill-opacity="0.3" height="240" rx="4" width="90" x="480" y="20"></rect>
+<text fill="#006591" font-family="JetBrains Mono" font-size="10" font-weight="500" text-anchor="middle" x="525" y="38">PRE-COOLING</text>
+<!-- Baseline Curve -->
+<path class="transition-all duration-300" d="M 0,200 C 80,210 160,205 240,170 C 320,135 400,120 480,115 C 560,105 620,50 680,60 C 720,110 760,160 800,190" fill="none" id="curve-baseline" stroke="#6d7a72" stroke-dasharray="5,4" stroke-width="2.5"></path>
+<!-- Gridwise Area Fill -->
+<path class="transition-all duration-300" d="M 0,200 C 80,210 160,205 240,170 C 320,135 400,120 480,95 C 560,90 620,140 680,135 C 720,150 760,170 800,190 L 800,260 L 0,260 Z" fill="url(#areaGrad)" id="curve-grid-area"></path>
+<!-- Gridwise Curve -->
+<path class="transition-all duration-300" d="M 0,200 C 80,210 160,205 240,170 C 320,135 400,120 480,95 C 560,90 620,140 680,135 C 720,150 760,170 800,190" fill="none" id="curve-gridwise" stroke="#00855d" stroke-linecap="round" stroke-width="3"></path>
+<!-- Peak Marker Pins -->
+<g id="peak-markers">
+<circle cx="650" cy="50" fill="#825100" r="5" stroke="#fff" stroke-width="2"></circle>
+<circle cx="650" cy="138" fill="#00855d" r="6" stroke="#fff" stroke-width="2.5"></circle>
+<line stroke="#00855d" stroke-dasharray="3,3" stroke-width="1.5" x1="650" x2="650" y1="50" y2="138"></line>
+</g>
+<!-- Crosshair Indicator -->
+<line class="pointer-events-none hidden" id="crosshair-guide" stroke="#006948" stroke-dasharray="2,2" stroke-width="1.5" x1="0" x2="0" y1="20" y2="260"></line>
+<!-- Time Labels -->
+<g fill="#6d7a72" font-family="JetBrains Mono" font-size="10">
+<text x="0" y="278">00:00</text>
+<text x="133" y="278">04:00</text>
+<text x="266" y="278">08:00</text>
+<text x="400" y="278">12:00</text>
+<text x="533" y="278">16:00</text>
+<text x="600" y="278">18:00</text>
+<text x="700" y="278">21:00</text>
+<text x="765" y="278">23:45</text>
+</g>
+</svg>
+<!-- Chart Floating Tooltip -->
+<div class="absolute pointer-events-none bg-on-surface text-surface p-2.5 rounded-lg shadow-xl text-xs font-mono z-30 min-w-[150px] hidden" id="chart-tooltip" style="left: 0px; top: 25px;">
+<div class="font-bold border-b border-outline/30 pb-1 mb-1 text-[11px]" id="tt-time">Time: 22:50 IST</div>
+<div class="flex justify-between text-outline-variant"><span>Baseline:</span><span class="font-bold text-white" id="tt-base">301 kW</span></div>
+<div class="flex justify-between text-primary-container"><span>Gridwise:</span><span class="font-bold text-primary-container" id="tt-grid">297 kW</span></div>
+<div class="flex justify-between text-secondary mt-1 pt-1 border-t border-outline/30"><span>Hourly Delta:</span><span class="font-bold" id="tt-rate">₹440/h saved</span></div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-2 border-t border-surface-container-high text-xs text-outline">
+<span class="flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full bg-primary shrink-0"></span> Model: GradientBoost Ensemble v4.2 (SLA 98.4%)</span>
+<span class="font-mono text-on-surface" id="next-infer-timer">Next Inference: 18:15 IST (in 7m 24s)</span>
+</div>
+</div>
+<!-- Submeter Breakdown Panel (lg:col-span-4) -->
+<div class="lg:col-span-4 bg-surface-container-lowest p-4 sm:p-5 rounded-xl shadow-xs border border-surface-container-high flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4">
+<div>
+<h3 class="text-base font-bold text-on-surface">Submeter Breakdown</h3>
+<p class="text-xs text-outline">Real-time load split by subsystem</p>
+</div>
+<span class="px-2 py-0.5 bg-surface-container-high rounded text-xs font-mono font-bold" id="submeter-tag">342 kW Total</span>
+</div>
+<!-- Meter List -->
+<div class="space-y-3" id="submeter-cards">
+<!-- HVAC -->
+<div class="meter-item p-3 bg-surface-container-low hover:bg-surface-container rounded-xl cursor-pointer transition-all border border-transparent hover:border-primary/30" onclick="showToast('HVAC telemetry: Chiller 1 (94kW), Chiller 2 (88kW) normal.')">
+<div class="flex items-center justify-between mb-1 text-xs">
+<span class="font-bold flex items-center gap-1.5 text-on-surface"><span class="material-symbols-outlined text-[16px] text-primary">ac_unit</span> HVAC (Chillers &amp; AHU)</span>
+<span class="font-mono font-bold">182 kW (53%)</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mb-1.5">
+<div class="h-full bg-primary" style="width: 53%;"></div>
+</div>
+<div class="text-[11px] text-outline flex justify-between">
+<span class="text-primary font-medium">Auto Shed Ready (-45 kW)</span>
+<span>BACnet MS/TP</span>
+</div>
+</div>
+<!-- EV Bay -->
+<div class="meter-item p-3 bg-surface-container-low hover:bg-surface-container rounded-xl cursor-pointer transition-all border border-transparent hover:border-secondary/30" onclick="showToast('EV Bay: 8 of 12 chargers active. OCPP throttling armed.')">
+<div class="flex items-center justify-between mb-1 text-xs">
+<span class="font-bold flex items-center gap-1.5 text-on-surface"><span class="material-symbols-outlined text-[16px] text-secondary">ev_station</span> EV Fleet Bay (12 Units)</span>
+<span class="font-mono font-bold">64 kW (19%)</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mb-1.5">
+<div class="h-full bg-secondary" style="width: 19%;"></div>
+</div>
+<div class="text-[11px] text-outline flex justify-between">
+<span class="text-secondary font-medium">Throttleable (-25 kW)</span>
+<span>OCPP 2.0.1</span>
+</div>
+</div>
+<!-- Water Pumps -->
+<div class="meter-item p-3 bg-surface-container-low hover:bg-surface-container rounded-xl cursor-pointer transition-all border border-transparent hover:border-outline/30" onclick="showToast('Booster pumps: Hydro-pneumatic reservoir at 84% capacity.')">
+<div class="flex items-center justify-between mb-1 text-xs">
+<span class="font-bold flex items-center gap-1.5 text-on-surface"><span class="material-symbols-outlined text-[16px] text-outline">water_damage</span> Water Pumps &amp; STP</span>
+<span class="font-mono font-bold">48 kW (14%)</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mb-1.5">
+<div class="h-full bg-outline" style="width: 14%;"></div>
+</div>
+<div class="text-[11px] text-outline flex justify-between">
+<span class="text-on-surface-variant font-medium">Delayable (-15 kW)</span>
+<span>Modbus TCP</span>
+</div>
+</div>
+<!-- Common Lighting -->
+<div class="meter-item p-3 bg-surface-container-low hover:bg-surface-container rounded-xl cursor-pointer transition-all border border-transparent hover:border-on-surface/20" onclick="showToast('Elevator &amp; lighting: Protected non-sheddable circuits.')">
+<div class="flex items-center justify-between mb-1 text-xs">
+<span class="font-bold flex items-center gap-1.5 text-on-surface"><span class="material-symbols-outlined text-[16px] text-on-surface-variant">lightbulb</span> Lighting &amp; Elevators</span>
+<span class="font-mono font-bold">48 kW (14%)</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mb-1.5">
+<div class="h-full bg-on-surface" style="width: 14%;"></div>
+</div>
+<div class="text-[11px] text-outline flex justify-between">
+<span>Critical (Protected)</span>
+<span>DALI-2</span>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full mt-4 py-2.5 bg-surface-container-high hover:bg-surface-container text-on-surface font-semibold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors min-h-[44px]" id="btn-view-all-submeters">
+<span>View All 32 Submeters</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Grid Event "What-If" Simulator (Adaptive 12-col grid, stacked on mobile/tablet) -->
+<div class="bg-surface-container-lowest p-4 sm:p-6 rounded-2xl shadow-sm border border-surface-container-high" id="simulator-container">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-surface-container-high mb-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
+<span class="material-symbols-outlined text-[24px]">science</span>
+</div>
+<div>
+<h2 class="text-base sm:text-lg font-bold text-on-surface">Grid Event “What-If” Simulator</h2>
+<p class="text-xs text-outline">Calculate physical feasibility, avoided peak charges, and carbon abatement prior to curtailment dispatch</p>
+</div>
+</div>
+<div class="flex items-center gap-3 self-start sm:self-auto">
+<span class="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] sm:text-xs font-mono font-bold uppercase shrink-0">Simulation Engine Live</span>
+<button class="text-xs text-outline hover:text-on-surface font-medium hover:underline p-1" id="btn-reset-sim">Reset Defaults</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
+<!-- Left: Input Controls (7 Cols on desktop, 12 on mobile/tablet) -->
+<div class="lg:col-span-7 bg-surface-container-low p-4 sm:p-5 rounded-xl space-y-5">
+<!-- 1. Range Slider with touch target -->
+<div>
+<div class="flex justify-between items-center mb-1">
+<label class="text-xs font-bold text-on-surface flex items-center gap-1">
+<span>Requested Reduction Target</span>
+<span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="Power shedding target for the upcoming peak event">help_outline</span>
+</label>
+<div class="flex items-center gap-1">
+<input class="w-16 h-8 text-center font-mono font-bold text-xs bg-surface-container-lowest rounded-lg border border-surface-container-high outline-none focus:ring-1 focus:ring-primary" id="sim-input-number" max="120" min="10" type="number" value="45"/>
+<span class="text-xs font-mono text-outline">kW</span>
+</div>
+</div>
+<div class="py-2">
+<input class="w-full accent-primary h-2 bg-surface-container-high rounded cursor-pointer touch-pan-x" id="sim-range" max="120" min="10" step="1" type="range" value="45"/>
+</div>
+<div class="flex justify-between text-[10px] font-mono text-outline mt-1 font-medium flex-wrap gap-1">
+<span>10 kW (Mild)</span>
+<span>45 kW (Recommended)</span>
+<span id="slider-max-cap-label">85 kW (Available Max)</span>
+<span>120 kW (Stress)</span>
+</div>
+</div>
+<!-- 2. Duration Selector (Touch-friendly 44px min-height) -->
+<div>
+<label class="text-xs font-bold text-on-surface block mb-1.5">Event Curtailment Duration</label>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="sim-duration-group">
+<button class="sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-medium bg-surface-container-lowest text-on-surface hover:bg-surface-container border border-surface-container-high transition-colors flex items-center justify-center" data-hours="1">1 Hour</button>
+<button class="sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-medium bg-surface-container-lowest text-on-surface hover:bg-surface-container border border-surface-container-high transition-colors flex items-center justify-center" data-hours="2">2 Hours</button>
+<button class="sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-bold bg-primary text-on-primary shadow-xs transition-colors flex items-center justify-center" data-hours="3">3 Hours</button>
+<button class="sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-medium bg-surface-container-lowest text-on-surface hover:bg-surface-container border border-surface-container-high transition-colors flex items-center justify-center" data-hours="4">4 Hours</button>
+</div>
+</div>
+<!-- 3. Subsystem Engagement Matrix Checkboxes (Touch-friendly targets) -->
+<div>
+<label class="text-xs font-bold text-on-surface block mb-1.5">Facility Sub-system Engagement Matrix</label>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+<label class="flex items-center sm:items-start gap-2.5 p-3 min-h-[44px] bg-surface-container-lowest rounded-lg border border-surface-container-high cursor-pointer hover:bg-surface-container transition-colors">
+<input checked="" class="sim-chk accent-primary h-5 w-5 rounded" id="chk-hvac" type="checkbox"/>
+<div>
+<span class="text-xs font-bold text-on-surface block leading-tight">HVAC Pre-cooling</span>
+<span class="text-[10px] text-outline font-mono">Up to 45 kW</span>
+</div>
+</label>
+<label class="flex items-center sm:items-start gap-2.5 p-3 min-h-[44px] bg-surface-container-lowest rounded-lg border border-surface-container-high cursor-pointer hover:bg-surface-container transition-colors">
+<input checked="" class="sim-chk accent-primary h-5 w-5 rounded" id="chk-ev" type="checkbox"/>
+<div>
+<span class="text-xs font-bold text-on-surface block leading-tight">EV Throttling</span>
+<span class="text-[10px] text-outline font-mono">Up to 25 kW</span>
+</div>
+</label>
+<label class="flex items-center sm:items-start gap-2.5 p-3 min-h-[44px] bg-surface-container-lowest rounded-lg border border-surface-container-high cursor-pointer hover:bg-surface-container transition-colors">
+<input checked="" class="sim-chk accent-primary h-5 w-5 rounded" id="chk-storage" type="checkbox"/>
+<div>
+<span class="text-xs font-bold text-on-surface block leading-tight">Thermal Bank</span>
+<span class="text-[10px] text-outline font-mono">Up to 15 kW</span>
+</div>
+</label>
+</div>
+</div>
+<div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<button class="min-h-[44px] px-4 py-2.5 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer" id="btn-run-sim">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+<span id="run-sim-text">RE-RUN SCENARIO CALCULATION</span>
+</button>
+<span class="text-[11px] font-mono text-outline text-center sm:text-right" id="latency-label">Computation latency: 42ms</span>
+</div>
+</div>
+<!-- Right: Projected Curtailment Impact (5 Cols on desktop, 12 on mobile/tablet) -->
+<div class="lg:col-span-5 bg-surface-container p-4 sm:p-5 rounded-xl flex flex-col justify-between" id="sim-results-card">
+<div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-bold text-on-surface">Projected Curtailment Impact</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold font-mono" id="badge-feasibility">100% Feasible</span>
+</div>
+<!-- 4 Outcome Cards -->
+<div class="grid grid-cols-2 gap-2.5 sm:gap-3 mb-3">
+<div class="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high result-box">
+<span class="text-[10px] font-mono uppercase text-outline">Target Reduction</span>
+<div class="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5" id="out-target">45 kW</div>
+<span class="text-[10px] text-outline truncate block" id="out-target-sub">Shed Cap: 85 kW</span>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high result-box">
+<span class="text-[10px] font-mono uppercase text-outline">Peak Reduction</span>
+<div class="text-base sm:text-xl font-bold font-mono text-on-surface mt-0.5 truncate" id="out-peak">468 → 423 kW</div>
+<span class="text-[10px] text-primary font-bold" id="out-peak-pct">-9.6% Peak Shaved</span>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high result-box">
+<span class="text-[10px] font-mono uppercase text-outline">Energy Shifted</span>
+<div class="text-lg sm:text-xl font-bold font-mono text-on-surface mt-0.5" id="out-energy">115 kWh</div>
+<span class="text-[10px] text-outline" id="out-energy-sub">Over 3 Hours</span>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high result-box">
+<span class="text-[10px] font-mono uppercase text-outline">Net Avoided Cost</span>
+<div class="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5" id="out-savings">₹12,650</div>
+<span class="text-[10px] text-on-surface-variant font-medium">Avoided Surcharges</span>
+</div>
+</div>
+<!-- Scope 2 Carbon Card -->
+<div class="p-3 bg-surface-container-lowest rounded-xl border border-surface-container-high flex items-center justify-between mb-4 result-box">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px] shrink-0">eco</span>
+<div>
+<span class="text-xs font-bold text-on-surface block">Scope 2 Carbon Avoided</span>
+<span class="text-[10px] text-outline font-mono">0.80 kg CO₂e / kWh grid factor</span>
+</div>
+</div>
+<div class="text-right shrink-0">
+<div class="text-base font-bold font-mono text-primary" id="out-carbon">92 kg</div>
+<span class="text-[10px] text-outline">CO₂e Mitigation</span>
+</div>
+</div>
+</div>
+<!-- Dispatch Action Button (min 44px) -->
+<button class="w-full min-h-[44px] py-3 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer" id="btn-dispatch-stage">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+<span id="btn-dispatch-label">Stage Automated Curtailment Dispatch</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Impact Verification & 30-Day Audit Logs (Fluid 12-col layout) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
+<!-- Verification Summary (4 Cols on desktop, 12 on mobile/tablet) -->
+<div class="lg:col-span-4 bg-surface-container-lowest p-4 sm:p-5 rounded-xl border border-surface-container-high shadow-xs flex flex-col justify-between">
+<div class="space-y-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">verified</span>
+<h3 class="text-sm font-bold text-on-surface">Verification &amp; Governance</h3>
+</div>
+<p class="text-xs text-outline">Backtested 30-day verified curtailment telemetry audited against BESCOM utility metering.</p>
+<div class="space-y-2 pt-2">
+<div class="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container" onclick="showToast('Total curtailment sessions: 28 events recorded.')">
+<span class="text-outline">Total Load Shifted</span>
+<span class="font-mono font-bold">18.4 MWh</span>
+</div>
+<div class="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container" onclick="showToast('Tariff savings credited in billing cycle #9928.')">
+<span class="text-outline">Verified Tariff Savings</span>
+<span class="font-mono font-bold text-primary">₹1,84,200</span>
+</div>
+<div class="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container" onclick="showToast('ASHRAE Standard 55 thermal comfort compliance upheld.')">
+<span class="text-outline">Occupant Comfort SLA</span>
+<span class="font-mono font-bold text-secondary">99.4% Compliant</span>
+</div>
+<div class="p-2.5 bg-surface-container-low rounded-lg flex justify-between text-xs cursor-pointer hover:bg-surface-container" onclick="showToast('Mean latency from ISO openADR dispatch signal to relay actuation.')">
+<span class="text-outline">Mean Response Time</span>
+<span class="font-mono font-bold">4m 12s</span>
+</div>
+</div>
+</div>
+<div class="mt-4 p-3 bg-primary/5 rounded-xl border border-primary/20 flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary text-[22px] shrink-0">workspace_premium</span>
+<div>
+<span class="text-xs font-bold text-on-surface block">Utility Grid Interconnect SLA</span>
+<span class="text-[10px] text-outline">Demand response settlement grade: A+</span>
+</div>
+</div>
+</div>
+<!-- Audit Table (8 Cols on desktop, 12 on mobile/tablet) with smooth touch horizontal scrolling -->
+<div class="lg:col-span-8 bg-surface-container-lowest p-4 sm:p-5 rounded-xl border border-surface-container-high shadow-xs flex flex-col justify-between overflow-hidden">
+<div>
+<div class="flex items-center justify-between mb-3 gap-2">
+<div>
+<h3 class="text-sm font-bold text-on-surface">Recent Dispatch Verification Logs</h3>
+<p class="text-xs text-outline">Cryptographically hashed settlement events sent to ISO dispatch</p>
+</div>
+<span class="px-2 py-0.5 bg-surface-container-high rounded text-[10px] font-mono text-outline uppercase font-semibold shrink-0">Immutable Trail</span>
+</div>
+<!-- Scrollable Table Wrapper -->
+<div class="overflow-x-auto custom-scrollbar -mx-2 sm:mx-0 px-2 sm:px-0">
+<table class="w-full text-left text-xs min-w-[560px]">
+<thead>
+<tr class="bg-surface-container-low text-outline font-mono text-[10px] uppercase">
+<th class="py-2.5 px-3 rounded-l">Event ID</th>
+<th class="py-2.5 px-3">Dispatch Window</th>
+<th class="py-2.5 px-3">Committed</th>
+<th class="py-2.5 px-3">Delivered</th>
+<th class="py-2.5 px-3">Compliance</th>
+<th class="py-2.5 px-3 rounded-r">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-high font-mono" id="audit-tbody">
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="showToast('Event #DR-882: Shed 52.4kW via HVAC loop + EV throttling.')">
+<td class="py-2.5 px-3 font-bold text-on-surface">#DR-882</td>
+<td class="py-2.5 px-3 text-outline">Yesterday, 18:30 - 20:30</td>
+<td class="py-2.5 px-3">50.0 kW</td>
+<td class="py-2.5 px-3 font-bold text-primary">52.4 kW</td>
+<td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">104.8%</span></td>
+<td class="py-2.5 px-3 text-primary flex items-center gap-1 font-sans text-xs"><span class="material-symbols-outlined text-[14px]">check_circle</span> Verified</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="showToast('Event #DR-881: Credited ₹22,800 to October utility statement.')">
+<td class="py-2.5 px-3 font-bold text-on-surface">#DR-881</td>
+<td class="py-2.5 px-3 text-outline">24 Oct, 18:00 - 21:00</td>
+<td class="py-2.5 px-3">70.0 kW</td>
+<td class="py-2.5 px-3 font-bold text-primary">69.1 kW</td>
+<td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">98.7%</span></td>
+<td class="py-2.5 px-3 text-primary flex items-center gap-1 font-sans text-xs"><span class="material-symbols-outlined text-[14px]">check_circle</span> Settled</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="showToast('Event #DR-879: 1 Hour rapid sprint shed achieved.')">
+<td class="py-2.5 px-3 font-bold text-on-surface">#DR-879</td>
+<td class="py-2.5 px-3 text-outline">21 Oct, 19:00 - 20:00</td>
+<td class="py-2.5 px-3">35.0 kW</td>
+<td class="py-2.5 px-3 font-bold text-primary">36.2 kW</td>
+<td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">103.4%</span></td>
+<td class="py-2.5 px-3 text-primary flex items-center gap-1 font-sans text-xs"><span class="material-symbols-outlined text-[14px]">check_circle</span> Settled</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-surface-container-high text-xs text-outline">
+<span>Showing recent historical dispatch audits</span>
+<button class="text-primary font-bold hover:underline text-left sm:text-right" onclick="showToast('Compiling comprehensive ISO verification PDF...')">Download Verification PDF</button>
+</div>
+</div>
+</div>
+<!-- Developer Drawer -->
+<div class="p-3 bg-surface-container-low rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs font-mono text-outline">
+<div class="flex items-center gap-2 truncate">
+<span class="material-symbols-outlined text-[16px] shrink-0">terminal</span>
+<span class="truncate">API: <code class="text-on-surface font-semibold" id="api-label">/api/v1/facility/telemetry?building_id=BLR-OLY-B</code></span>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+<span>WS: <code class="text-on-surface font-semibold">wss://telemetry.enersense.io/v1/streams</code></span>
+</div>
+</div>
+</div>
+</main>
+<!-- Slide-Over Drawer: All 32 Submeters (Responsive width) -->
+<div class="fixed inset-0 z-50 hidden" id="submeter-drawer">
+<div class="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity" id="drawer-backdrop"></div>
+<div class="fixed inset-y-0 right-0 max-w-full flex">
+<div class="w-screen max-w-md sm:max-w-lg bg-surface-container-lowest shadow-2xl p-4 sm:p-6 flex flex-col justify-between overflow-y-auto">
+<div>
+<div class="flex items-center justify-between pb-4 border-b border-surface-container-high">
+<div>
+<h3 class="text-base font-bold text-on-surface">All 32 Submeters Telemetry</h3>
+<p class="text-xs text-outline">Olympus Tower - Block B breaker topology</p>
+</div>
+<button aria-label="Close drawer" class="p-2 rounded-lg hover:bg-surface-container text-outline" id="btn-close-drawer">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="my-4">
+<input class="w-full px-3 py-2 bg-surface-container-low rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary border border-surface-container-high" id="submeter-search" placeholder="Search submeter by name or panel..." type="text"/>
+</div>
+<div class="space-y-2" id="full-submeter-list">
+<!-- Dynamically populated -->
+</div>
+</div>
+<div class="pt-4 border-t border-surface-container-high flex justify-between items-center text-xs">
+<span class="text-outline">Sync rate: 200ms</span>
+<button class="px-5 py-2.5 bg-primary text-on-primary font-bold rounded-lg text-xs min-h-[40px]" id="btn-close-drawer-bottom">Done</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Occupant View Preview Modal -->
+<div class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 sm:p-4" id="occupant-modal">
+<div class="fixed inset-0 bg-black/50 backdrop-blur-xs" id="occupant-backdrop"></div>
+<div class="relative bg-surface-container-lowest rounded-2xl max-w-sm w-full p-4 sm:p-5 shadow-2xl border border-surface-container-high z-10 text-left">
+<!-- Phone Frame Header -->
+<div class="flex items-center justify-between pb-3 border-b border-surface-container-high mb-3">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
+<span class="material-symbols-outlined text-[18px]">smartphone</span>
+</div>
+<div>
+<h3 class="text-xs font-bold text-on-surface leading-tight">Occupant Eco-Portal Simulator</h3>
+<p class="text-[10px] text-outline font-mono">Pod 4B • Floor 3 Spine</p>
+</div>
+</div>
+<button aria-label="Close modal" class="p-1 text-outline hover:text-on-surface rounded-lg hover:bg-surface-container" id="btn-close-occupant-x">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Mobile Screen Container -->
+<div class="space-y-3 max-h-[70vh] overflow-y-auto pr-0.5 custom-scrollbar">
+<!-- Peak Event Alert Pill -->
+<div class="p-2.5 rounded-xl bg-tertiary-fixed/30 border-l-2 border-tertiary flex items-start gap-2">
+<span class="material-symbols-outlined text-tertiary text-[18px] mt-0.5">energy_savings_leaf</span>
+<div>
+<span class="font-bold text-xs text-tertiary block">Shift &amp; Save Window (18:00 - 21:00)</span>
+<span class="text-[10px] text-on-surface-variant leading-tight block">Facility peak event active. Opt-in rewards: +150 GreenCredits.</span>
+</div>
+</div>
+<!-- Micro-climate & Comfort Controller -->
+<div class="p-3 bg-surface-container-low rounded-xl border border-surface-container-high">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[16px]">thermostat</span> Workstation Micro-Climate
+            </span>
+<span class="text-xs font-mono font-bold text-primary" id="occ-temp-val">24.0°C</span>
+</div>
+<div class="flex items-center gap-2 my-2">
+<button class="w-10 h-10 rounded-lg bg-surface-container-lowest border border-surface-container-high text-on-surface font-bold text-base flex items-center justify-center hover:bg-surface-container active:scale-95 transition-all" id="occ-temp-down">-</button>
+<div class="flex-1 text-center font-mono text-[11px] text-outline">
+              Eco Target Range: 23.5°C - 25.0°C
+            </div>
+<button class="w-10 h-10 rounded-lg bg-surface-container-lowest border border-surface-container-high text-on-surface font-bold text-base flex items-center justify-center hover:bg-surface-container active:scale-95 transition-all" id="occ-temp-up">+</button>
+</div>
+<div class="flex justify-between items-center text-[10px] text-outline pt-1 border-t border-surface-container-high">
+<span>Pod Air Quality: <strong class="text-primary">412 ppm CO₂</strong></span>
+<span>Comfort: <strong class="text-secondary">Optimal</strong></span>
+</div>
+</div>
+<!-- EV Smart Shift Opt-in -->
+<div class="p-3 bg-surface-container-low rounded-xl border border-surface-container-high flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-secondary text-[20px]">ev_station</span>
+<div>
+<span class="text-xs font-bold text-on-surface block">EV Stall #14 Shift</span>
+<span class="text-[10px] text-outline">Pause charge till 21:00</span>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="occ-ev-toggle" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-container-high after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Shift & Save Challenge Card -->
+<div class="p-3 bg-primary/5 rounded-xl border border-primary/20 space-y-2">
+<div class="flex items-center justify-between text-xs">
+<span class="font-bold text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">military_tech</span> Tenant Green Badge
+            </span>
+<span class="font-mono font-bold text-primary">Tier: Gold (940 pts)</span>
+</div>
+<p class="text-[10px] text-on-surface-variant">By accommodating +0.5°C drift during peak window, Block B prevents 92 kg carbon today.</p>
+</div>
+</div>
+<!-- Switch Back Button -->
+<div class="pt-4 border-t border-surface-container-high mt-3">
+<button class="w-full min-h-[44px] py-2.5 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5" id="btn-close-occupant">
+<span class="material-symbols-outlined text-[16px]">dashboard</span>
+<span>Return to Facility Manager View</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dispatch Staging Confirmation Dialog -->
+<div class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" id="dispatch-dialog">
+<div class="fixed inset-0 bg-black/50 backdrop-blur-xs" id="dispatch-backdrop"></div>
+<div class="relative bg-surface-container-lowest rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-surface-container-high z-10">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+<span class="material-symbols-outlined text-[22px]">bolt</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-on-surface">Confirm Grid Dispatch Curtailment</h3>
+<p class="text-xs text-outline">Transmit automated command to BACnet/IP</p>
+</div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-xl text-xs space-y-1.5 mb-4">
+<div class="flex justify-between">
+<span class="text-outline">Target Reduction:</span>
+<span class="font-bold text-primary font-mono" id="diag-target">45 kW</span>
+</div>
+<div class="flex justify-between">
+<span class="text-outline">Peak Window:</span>
+<span class="font-bold">18:00 – 21:00 IST</span>
+</div>
+<div class="flex justify-between">
+<span class="text-outline">Projected Net Credit:</span>
+<span class="font-bold text-primary font-mono" id="diag-savings">₹12,650</span>
+</div>
+</div>
+<div class="flex justify-end gap-2">
+<button class="min-h-[40px] px-4 py-2 rounded-xl text-xs font-semibold text-outline hover:bg-surface-container" id="btn-cancel-dispatch">Cancel</button>
+<button class="min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold bg-primary text-on-primary hover:bg-primary-container" id="btn-confirm-dispatch">Arm &amp; Dispatch</button>
+</div>
+</div>
+</div>
+<!-- Toast Shelf -->
+<div class="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full" id="toast-shelf"></div>
+<!-- Interactive JavaScript Logic -->
+<script>
+    (function () {
+      // Reactive State
+      const state = {
+        building: 'Olympus Tower Tech Park - Block B',
+        activeKw: 342,
+        basePeakKw: 468,
+        reductionTarget: 45,
+        duration: 3,
+        subsystems: { hvac: true, ev: true, storage: true },
+        circuitFilter: 'all',
+        showBaseline: true,
+        showGridwise: true
+      };
+
+      // Toast function
+      window.showToast = function (msg, type = 'info') {
+        const shelf = document.getElementById('toast-shelf');
+        if (!shelf) return;
+        const toast = document.createElement('div');
+        toast.className = 'pointer-events-auto flex items-center gap-2 px-3.5 py-2.5 rounded-xl shadow-xl text-xs font-medium bg-on-surface text-surface transition-all duration-300 transform translate-y-2 opacity-0 border border-outline/20';
+        toast.innerHTML = `<span class="material-symbols-outlined text-[16px] text-primary shrink-0">${type === 'success' ? 'check_circle' : 'info'}</span><span class="leading-tight">${msg}</span>`;
+        shelf.appendChild(toast);
+        requestAnimationFrame(() => {
+          toast.classList.remove('translate-y-2', 'opacity-0');
+        });
+        setTimeout(() => {
+          toast.classList.add('translate-y-2', 'opacity-0');
+          setTimeout(() => toast.remove(), 300);
+        }, 3200);
+      };
+
+      // Mobile Sidebar Navigation Logic
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+      const sidebarDrawer = document.getElementById('sidebar-drawer');
+      const mobileSidebarBackdrop = document.getElementById('mobile-sidebar-backdrop');
+      const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+
+      function openSidebar() {
+        if (!sidebarDrawer || !mobileSidebarBackdrop) return;
+        sidebarDrawer.classList.remove('-translate-x-full');
+        mobileSidebarBackdrop.classList.remove('hidden');
+      }
+
+      function closeSidebar() {
+        if (!sidebarDrawer || !mobileSidebarBackdrop) return;
+        sidebarDrawer.classList.add('-translate-x-full');
+        mobileSidebarBackdrop.classList.add('hidden');
+      }
+
+      if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openSidebar);
+      if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeSidebar);
+      if (mobileSidebarBackdrop) mobileSidebarBackdrop.addEventListener('click', closeSidebar);
+
+      // 1. "What-If" Simulator Reactive Calculations
+      const slider = document.getElementById('sim-range');
+      const inputNum = document.getElementById('sim-input-number');
+      const durButtons = document.querySelectorAll('.sim-dur-btn');
+      const chkHvac = document.getElementById('chk-hvac');
+      const chkEv = document.getElementById('chk-ev');
+      const chkStorage = document.getElementById('chk-storage');
+      const runBtn = document.getElementById('btn-run-sim');
+      const resetBtn = document.getElementById('btn-reset-sim');
+      const dispatchBtn = document.getElementById('btn-dispatch-stage');
+
+      const outTarget = document.getElementById('out-target');
+      const outTargetSub = document.getElementById('out-target-sub');
+      const outPeak = document.getElementById('out-peak');
+      const outPeakPct = document.getElementById('out-peak-pct');
+      const outEnergy = document.getElementById('out-energy');
+      const outEnergySub = document.getElementById('out-energy-sub');
+      const outSavings = document.getElementById('out-savings');
+      const outCarbon = document.getElementById('out-carbon');
+      const feasibilityBadge = document.getElementById('badge-feasibility');
+      const kpiShedCap = document.getElementById('kpi-shed-cap');
+      const kpiFlexPct = document.getElementById('kpi-flex-pct');
+      const sliderMaxCapLabel = document.getElementById('slider-max-cap-label');
+
+      function getAvailableCap() {
+        let cap = 0;
+        if (state.subsystems.hvac) cap += 45;
+        if (state.subsystems.ev) cap += 25;
+        if (state.subsystems.storage) cap += 15;
+        return cap;
+      }
+
+      function updateSimulationUI() {
+        const target = state.reductionTarget;
+        const dur = state.duration;
+        const cap = getAvailableCap();
+
+        outTarget.textContent = `${target} kW`;
+        outTargetSub.textContent = `Shed Cap: ${cap} kW`;
+        if (kpiShedCap) kpiShedCap.textContent = cap;
+        if (sliderMaxCapLabel) sliderMaxCapLabel.textContent = `${cap} kW (Available Max)`;
+        if (kpiFlexPct) {
+          const flex = ((cap / state.activeKw) * 100).toFixed(1);
+          kpiFlexPct.textContent = `${flex}% load flex`;
+        }
+
+        const newPeak = Math.max(260, state.basePeakKw - target);
+        outPeak.textContent = `${state.basePeakKw} → ${newPeak} kW`;
+        const savedPct = ((target / state.basePeakKw) * 100).toFixed(1);
+        outPeakPct.textContent = `-${savedPct}% Peak Shaved`;
+
+        const energy = Math.round(target * dur * 0.85);
+        outEnergy.textContent = `${energy} kWh`;
+        outEnergySub.textContent = `Over ${dur} Hour${dur > 1 ? 's' : ''}`;
+
+        const savings = energy * 110;
+        outSavings.textContent = `₹${savings.toLocaleString('en-IN')}`;
+
+        const carbon = Math.round(energy * 0.8);
+        outCarbon.textContent = `${carbon} kg`;
+
+        if (target <= cap) {
+          feasibilityBadge.textContent = '100% Feasible';
+          feasibilityBadge.className = 'px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold font-mono';
+        } else {
+          feasibilityBadge.textContent = 'Stress Threshold';
+          feasibilityBadge.className = 'px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-tertiary text-xs font-bold font-mono';
+        }
+
+        const callout = document.getElementById('peak-callout-badge');
+        if (callout) callout.textContent = `↓ -${target} kW Peak Shaved at 19:15`;
+      }
+
+      if (slider && inputNum) {
+        slider.addEventListener('input', (e) => {
+          state.reductionTarget = parseInt(e.target.value, 10);
+          inputNum.value = state.reductionTarget;
+          updateSimulationUI();
+        });
+        inputNum.addEventListener('input', (e) => {
+          let val = parseInt(e.target.value, 10);
+          if (isNaN(val)) val = 10;
+          val = Math.max(10, Math.min(120, val));
+          state.reductionTarget = val;
+          slider.value = val;
+          updateSimulationUI();
+        });
+      }
+
+      durButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          durButtons.forEach((b) => {
+            b.className = 'sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-medium bg-surface-container-lowest text-on-surface hover:bg-surface-container border border-surface-container-high transition-colors flex items-center justify-center';
+          });
+          btn.className = 'sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-bold bg-primary text-on-primary shadow-xs transition-colors flex items-center justify-center';
+          state.duration = parseInt(btn.getAttribute('data-hours'), 10);
+          updateSimulationUI();
+        });
+      });
+
+      [chkHvac, chkEv, chkStorage].forEach((chk) => {
+        if (!chk) return;
+        chk.addEventListener('change', () => {
+          state.subsystems.hvac = chkHvac.checked;
+          state.subsystems.ev = chkEv.checked;
+          state.subsystems.storage = chkStorage.checked;
+          updateSimulationUI();
+        });
+      });
+
+      if (runBtn) {
+        runBtn.addEventListener('click', () => {
+          const runText = document.getElementById('run-sim-text');
+          runBtn.disabled = true;
+          runText.textContent = 'CALCULATING...';
+          setTimeout(() => {
+            const lat = Math.floor(Math.random() * 20) + 32;
+            document.getElementById('latency-label').textContent = `Computation latency: ${lat}ms`;
+            document.querySelectorAll('.result-box').forEach(b => {
+              b.classList.add('pulse-glow');
+              setTimeout(() => b.classList.remove('pulse-glow'), 500);
+            });
+            updateSimulationUI();
+            runText.textContent = 'RE-RUN SCENARIO CALCULATION';
+            runBtn.disabled = false;
+            showToast('Scenario simulation recalculated successfully.', 'success');
+          }, 450);
+        });
+      }
+
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          state.reductionTarget = 45;
+          slider.value = 45;
+          inputNum.value = 45;
+          state.duration = 3;
+          durButtons.forEach(b => {
+            b.className = (b.getAttribute('data-hours') === '3')
+              ? 'sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-bold bg-primary text-on-primary shadow-xs transition-colors flex items-center justify-center'
+              : 'sim-dur-btn min-h-[44px] py-2 rounded-lg text-xs font-medium bg-surface-container-lowest text-on-surface hover:bg-surface-container border border-surface-container-high transition-colors flex items-center justify-center';
+          });
+          chkHvac.checked = true;
+          chkEv.checked = true;
+          chkStorage.checked = true;
+          state.subsystems = { hvac: true, ev: true, storage: true };
+          updateSimulationUI();
+          showToast('Simulator restored to baseline parameters.');
+        });
+      }
+
+      // Dispatch Dialog Flow
+      const dispatchDialog = document.getElementById('dispatch-dialog');
+      const diagTarget = document.getElementById('diag-target');
+      const diagSavings = document.getElementById('diag-savings');
+      const cancelDispatch = document.getElementById('btn-cancel-dispatch');
+      const confirmDispatch = document.getElementById('btn-confirm-dispatch');
+      const dispatchBackdrop = document.getElementById('dispatch-backdrop');
+
+      if (dispatchBtn && dispatchDialog) {
+        dispatchBtn.addEventListener('click', () => {
+          diagTarget.textContent = `${state.reductionTarget} kW`;
+          diagSavings.textContent = outSavings.textContent;
+          dispatchDialog.classList.remove('hidden');
+        });
+
+        const closeDiag = () => dispatchDialog.classList.add('hidden');
+        cancelDispatch.addEventListener('click', closeDiag);
+        dispatchBackdrop.addEventListener('click', closeDiag);
+
+        confirmDispatch.addEventListener('click', () => {
+          closeDiag();
+          showToast(`Automated curtailment armed (-${state.reductionTarget} kW). BACnet command queued.`, 'success');
+          document.getElementById('btn-dispatch-label').textContent = `Armed (-${state.reductionTarget} kW) for 18:00 Peak`;
+          
+          const tbody = document.getElementById('audit-tbody');
+          if (tbody) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-surface-container-low transition-colors bg-primary/5';
+            tr.innerHTML = `
+              <td class="py-2.5 px-3 font-bold text-on-surface">#DR-883</td>
+              <td class="py-2.5 px-3 text-outline">Today, 18:00 - ${18 + state.duration}:00</td>
+              <td class="py-2.5 px-3">${state.reductionTarget}.0 kW</td>
+              <td class="py-2.5 px-3 font-bold text-primary">Pending</td>
+              <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold text-[10px]">Armed</span></td>
+              <td class="py-2.5 px-3 text-primary flex items-center gap-1 font-sans text-xs"><span class="material-symbols-outlined text-[14px]">schedule</span> Pre-cooling</td>
+            `;
+            tbody.insertBefore(tr, tbody.firstChild);
+          }
+        });
+      }
+
+      // 2. Interactive SVG Chart Morphing & Hover Tooltip
+      const filterPills = document.querySelectorAll('.filter-pill');
+      const curveBaseline = document.getElementById('curve-baseline');
+      const curveGridwise = document.getElementById('curve-gridwise');
+      const curveGridArea = document.getElementById('curve-grid-area');
+
+      const chartPaths = {
+        all: {
+          base: "M 0,200 C 80,210 160,205 240,170 C 320,135 400,120 480,115 C 560,105 620,50 680,60 C 720,110 760,160 800,190",
+          grid: "M 0,200 C 80,210 160,205 240,170 C 320,135 400,120 480,95 C 560,90 620,140 680,135 C 720,150 760,170 800,190",
+          gridArea: "M 0,200 C 80,210 160,205 240,170 C 320,135 400,120 480,95 C 560,90 620,140 680,135 C 720,150 760,170 800,190 L 800,260 L 0,260 Z",
+          callout: "↓ -78 kW Peak Shaved at 19:15"
+        },
+        hvac: {
+          base: "M 0,230 C 80,235 160,230 240,200 C 320,170 400,155 480,145 C 560,135 620,80 680,90 C 720,140 760,190 800,220",
+          grid: "M 0,230 C 80,235 160,230 240,200 C 320,170 400,155 480,125 C 560,120 620,165 680,160 C 720,175 760,195 800,220",
+          gridArea: "M 0,230 C 80,235 160,230 240,200 C 320,170 400,155 480,125 C 560,120 620,165 680,160 C 720,175 760,195 800,220 L 800,260 L 0,260 Z",
+          callout: "↓ -45 kW HVAC Shaved at 19:15"
+        },
+        ev: {
+          base: "M 0,250 C 80,250 160,245 240,230 C 320,210 400,200 480,190 C 560,180 620,130 680,140 C 720,180 760,220 800,240",
+          grid: "M 0,250 C 80,250 160,245 240,230 C 320,210 400,200 480,190 C 560,180 620,185 680,180 C 720,195 760,225 800,240",
+          gridArea: "M 0,250 C 80,250 160,245 240,230 C 320,210 400,200 480,190 C 560,180 620,185 680,180 C 720,195 760,225 800,240 L 800,260 L 0,260 Z",
+          callout: "↓ -25 kW EV Bay Throttled"
+        },
+        aux: {
+          base: "M 0,255 C 80,255 160,255 240,245 C 320,240 400,238 480,235 C 560,230 620,215 680,220 C 720,235 760,245 800,250",
+          grid: "M 0,255 C 80,255 160,255 240,245 C 320,240 400,238 480,235 C 560,230 620,225 680,224 C 720,235 760,245 800,250",
+          gridArea: "M 0,255 C 80,255 160,255 240,245 C 320,240 400,238 480,235 C 560,230 620,225 680,224 C 720,235 760,245 800,250 L 800,260 L 0,260 Z",
+          callout: "↓ -8 kW Auxiliary Lighting Shaved"
+        }
+      };
+
+      filterPills.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          filterPills.forEach((b) => {
+            b.className = 'filter-pill shrink-0 px-2.5 py-1 rounded text-xs font-medium text-outline hover:text-on-surface transition-all';
+          });
+          btn.className = 'filter-pill shrink-0 px-2.5 py-1 rounded text-xs font-semibold bg-surface-container-lowest text-on-surface shadow-xs transition-all';
+          const c = btn.getAttribute('data-circuit');
+          state.circuitFilter = c;
+          const conf = chartPaths[c] || chartPaths.all;
+          curveBaseline.setAttribute('d', conf.base);
+          curveGridwise.setAttribute('d', conf.grid);
+          curveGridArea.setAttribute('d', conf.gridArea);
+          document.getElementById('peak-callout-badge').textContent = conf.callout;
+        });
+      });
+
+      // Toggle Legend lines
+      const toggleBase = document.getElementById('toggle-base-curve');
+      const toggleGrid = document.getElementById('toggle-grid-curve');
+      toggleBase.addEventListener('click', () => {
+        state.showBaseline = !state.showBaseline;
+        curveBaseline.style.display = state.showBaseline ? 'block' : 'none';
+        document.getElementById('lbl-base').style.opacity = state.showBaseline ? '1' : '0.4';
+      });
+      toggleGrid.addEventListener('click', () => {
+        state.showGridwise = !state.showGridwise;
+        curveGridwise.style.display = state.showGridwise ? 'block' : 'none';
+        curveGridArea.style.display = state.showGridwise ? 'block' : 'none';
+        document.getElementById('lbl-grid').style.opacity = state.showGridwise ? '1' : '0.4';
+      });
+
+      // Chart Hover Crosshair & Tooltip
+      const chartView = document.getElementById('chart-viewport');
+      const svgChart = document.getElementById('svg-chart');
+      const crosshair = document.getElementById('crosshair-guide');
+      const tooltip = document.getElementById('chart-tooltip');
+      const ttTime = document.getElementById('tt-time');
+      const ttBase = document.getElementById('tt-base');
+      const ttGrid = document.getElementById('tt-grid');
+      const ttRate = document.getElementById('tt-rate');
+
+      function handleChartMove(e) {
+        if (!svgChart || !tooltip) return;
+        const rect = svgChart.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const mouseX = clientX - rect.left;
+        const svgX = (mouseX / rect.width) * 800;
+
+        if (svgX < 0 || svgX > 800) {
+          crosshair.classList.add('hidden');
+          tooltip.classList.add('hidden');
+          return;
+        }
+
+        const totalMins = Math.min(1439, Math.max(0, Math.floor((svgX / 800) * 1440)));
+        const hrs = String(Math.floor(totalMins / 60)).padStart(2, '0');
+        const mins = String(totalMins % 60).padStart(2, '0');
+
+        let baseVal = 210;
+        let gridVal = 210;
+
+        if (svgX >= 480 && svgX < 600) {
+          baseVal = Math.round(290 + (svgX - 480) * 0.4);
+          gridVal = Math.round(330 + (svgX - 480) * 0.35);
+        } else if (svgX >= 600 && svgX <= 700) {
+          const p = (svgX - 600) / 100;
+          baseVal = Math.round(420 + Math.sin(p * Math.PI) * 48);
+          gridVal = Math.round(baseVal - state.reductionTarget);
+        } else if (svgX > 700) {
+          baseVal = Math.round(350 - (svgX - 700) * 0.8);
+          gridVal = Math.round(340 - (svgX - 700) * 0.7);
+        } else {
+          baseVal = Math.round(180 + (svgX / 480) * 110);
+          gridVal = baseVal;
+        }
+
+        crosshair.setAttribute('x1', svgX);
+        crosshair.setAttribute('x2', svgX);
+        crosshair.classList.remove('hidden');
+
+        tooltip.classList.remove('hidden');
+        ttTime.textContent = `Time: ${hrs}:${mins} IST`;
+        ttBase.textContent = `${baseVal} kW`;
+        ttGrid.textContent = `${gridVal} kW`;
+        const diff = baseVal - gridVal;
+        ttRate.textContent = diff > 0 ? `₹${(diff * 110).toLocaleString('en-IN')}/h saved` : (diff < 0 ? 'Pre-cooling' : 'Normal');
+
+        let tipX = mouseX + 15;
+        if (tipX + 160 > rect.width) tipX = mouseX - 170;
+        tooltip.style.left = `${Math.max(10, tipX)}px`;
+        tooltip.style.top = `25px`;
+      }
+
+      if (chartView) {
+        chartView.addEventListener('mousemove', handleChartMove);
+        chartView.addEventListener('touchmove', handleChartMove, { passive: true });
+        chartView.addEventListener('mouseleave', () => {
+          crosshair.classList.add('hidden');
+          tooltip.classList.add('hidden');
+        });
+        chartView.addEventListener('touchend', () => {
+          crosshair.classList.add('hidden');
+          tooltip.classList.add('hidden');
+        });
+      }
+
+      // 3. Timeframe Buttons
+      const tfButtons = document.querySelectorAll('.tf-btn');
+      tfButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tfButtons.forEach(b => b.className = 'tf-btn px-2.5 sm:px-3 py-1 rounded-md text-xs font-medium text-outline hover:text-on-surface transition-all');
+          btn.className = 'tf-btn px-2.5 sm:px-3 py-1 rounded-md text-xs font-semibold bg-primary text-on-primary shadow-xs transition-all';
+          const tf = btn.getAttribute('data-tf');
+          if (tf === 'live') {
+            document.getElementById('kpi-cumulative').textContent = '4,820';
+            document.getElementById('kpi-cum-delta').textContent = '+4.2%';
+          } else if (tf === 'yesterday') {
+            document.getElementById('kpi-cumulative').textContent = '5,210';
+            document.getElementById('kpi-cum-delta').textContent = '-1.5%';
+          } else if (tf === '7d') {
+            document.getElementById('kpi-cumulative').textContent = '33,650';
+            document.getElementById('kpi-cum-delta').textContent = '+0.8%';
+          } else {
+            document.getElementById('kpi-cumulative').textContent = '4,940';
+            document.getElementById('kpi-cum-delta').textContent = '+2.0%';
+          }
+          showToast(`Dashboard updated for ${btn.textContent} view`);
+        });
+      });
+
+      // 4. Building Dropdown
+      const bldgBtn = document.getElementById('bldg-dropdown-btn');
+      const bldgMenu = document.getElementById('bldg-menu');
+      const bldgOptions = document.querySelectorAll('.bldg-opt');
+      if (bldgBtn && bldgMenu) {
+        bldgBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          bldgMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => bldgMenu.classList.add('hidden'));
+
+        bldgOptions.forEach(opt => {
+          opt.addEventListener('click', () => {
+            const name = opt.getAttribute('data-name');
+            state.building = name;
+            document.getElementById('active-bldg-label').textContent = opt.querySelector('span').textContent;
+            document.getElementById('crumb-bldg').textContent = name;
+            document.getElementById('api-label').textContent = `/api/v1/facility/telemetry?building=${encodeURIComponent(name)}`;
+            bldgMenu.classList.add('hidden');
+            showToast(`Switched active facility to ${name}`);
+          });
+        });
+      }
+
+      // 5. Notifications Dropdown
+      const notifBtn = document.getElementById('notif-btn');
+      const notifMenu = document.getElementById('notif-menu');
+      const notifBadge = document.getElementById('notif-badge');
+      const notifClear = document.getElementById('notif-clear-btn');
+      if (notifBtn && notifMenu) {
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          notifMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => notifMenu.classList.add('hidden'));
+        if (notifClear) {
+          notifClear.addEventListener('click', () => {
+            if (notifBadge) notifBadge.style.display = 'none';
+            notifMenu.classList.add('hidden');
+            showToast('All notifications marked as read.');
+          });
+        }
+      }
+
+      // 6. Submeters Drawer Modal
+      const drawer = document.getElementById('submeter-drawer');
+      const openDrawerBtn = document.getElementById('btn-view-all-submeters');
+      const closeDrawerBtn = document.getElementById('btn-close-drawer');
+      const closeDrawerBottom = document.getElementById('btn-close-drawer-bottom');
+      const drawerBackdrop = document.getElementById('drawer-backdrop');
+      const subList = document.getElementById('full-submeter-list');
+      const subSearch = document.getElementById('submeter-search');
+
+      const mockMeters = [
+        { id: "M-01", name: "Chiller 1 - Primary Compressor", cat: "HVAC", kw: 94, pf: "0.96", prio: "Auto Shed" },
+        { id: "M-02", name: "Chiller 2 - Secondary Compressor", cat: "HVAC", kw: 88, pf: "0.95", prio: "Auto Shed" },
+        { id: "M-03", name: "AHU-4 North Wing Air Loop", cat: "HVAC", kw: 36, pf: "0.94", prio: "Pre-cool" },
+        { id: "M-04", name: "EV Bay 1-6 Fast Chargers", cat: "EV Fleet", kw: 38, pf: "0.98", prio: "Throttle" },
+        { id: "M-05", name: "EV Bay 7-12 Standard Charging", cat: "EV Fleet", kw: 26, pf: "0.97", prio: "Throttle" },
+        { id: "M-06", name: "Booster Pumps & Hydro Reservoir", cat: "Water", kw: 28, pf: "0.92", prio: "Delay" },
+        { id: "M-07", name: "Sewage Aeration Blowers", cat: "Water", kw: 20, pf: "0.91", prio: "Delay" },
+        { id: "M-08", name: "Basement & Podium LED Matrix", cat: "Lighting", kw: 18, pf: "0.99", prio: "Critical" },
+        { id: "M-09", name: "Elevator Bank 1-4 Regenerative", cat: "Mobility", kw: 30, pf: "0.93", prio: "Critical" },
+        { id: "M-10", name: "Data Center UPS Line A", cat: "IT Load", kw: 44, pf: "0.99", prio: "Protected" }
+      ];
+
+      function renderMeters(query = "") {
+        if (!subList) return;
+        subList.innerHTML = "";
+        const q = query.toLowerCase();
+        const filtered = mockMeters.filter(m => m.name.toLowerCase().includes(q) || m.cat.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+        filtered.forEach(m => {
+          const div = document.createElement('div');
+          div.className = 'p-3 bg-surface-container-low rounded-xl flex items-center justify-between text-xs hover:bg-surface-container transition-colors';
+          div.innerHTML = `
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-lg bg-surface-container-lowest font-mono font-bold text-outline flex items-center justify-center shrink-0">${m.id}</span>
+              <div class="truncate">
+                <div class="font-bold text-on-surface truncate">${m.name}</div>
+                <div class="text-[10px] text-outline">${m.cat} • PF: ${m.pf}</div>
+              </div>
+            </div>
+            <div class="text-right shrink-0 ml-2">
+              <div class="font-mono font-bold text-on-surface">${m.kw} kW</div>
+              <span class="text-[10px] font-semibold ${m.prio === 'Critical' || m.prio === 'Protected' ? 'text-outline' : 'text-primary'}">${m.prio}</span>
+            </div>
+          `;
+          subList.appendChild(div);
+        });
+      }
+
+      if (openDrawerBtn && drawer) {
+        openDrawerBtn.addEventListener('click', () => {
+          renderMeters();
+          drawer.classList.remove('hidden');
+        });
+        const hideDrawer = () => drawer.classList.add('hidden');
+        closeDrawerBtn.addEventListener('click', hideDrawer);
+        closeDrawerBottom.addEventListener('click', hideDrawer);
+        drawerBackdrop.addEventListener('click', hideDrawer);
+
+        if (subSearch) {
+          subSearch.addEventListener('input', (e) => renderMeters(e.target.value));
+        }
+      }
+
+      // 7. Navigation Items Click
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.nav-item').forEach(i => {
+            i.className = 'nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-outline hover:bg-surface-container-low hover:text-on-surface';
+          });
+          item.className = 'nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary shadow-xs';
+          showToast(`Navigated to ${item.getAttribute('data-page')} section`);
+          if (window.innerWidth < 1024) closeSidebar();
+        });
+      });
+
+      // 8. Export Audit Button
+      const exportBtn = document.getElementById('export-audit-btn');
+      if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+          showToast('Generating telemetry audit report (PDF & CSV)...', 'success');
+        });
+      }
+
+      // 9. Live Heartbeat Simulator
+      setInterval(() => {
+        const jitter = Math.floor(Math.random() * 5) - 2;
+        const kw = 342 + jitter;
+        state.activeKw = kw;
+        const kwElem = document.getElementById('kpi-active-kw');
+        if (kwElem) kwElem.textContent = kw;
+        const bar = document.getElementById('tx-bar');
+        if (bar) bar.style.width = `${Math.round((kw / 500) * 100)}%`;
+      }, 3500);
+
+      // Initialize simulator values
+      updateSimulationUI();
+    })();
+  </script>
+<!-- Role Switcher & Occupant Portal Preview Script -->
+<script>
+    (function setupRoleSwitcher() {
+      const btnFacility = document.getElementById('btn-role-facility');
+      const btnOccupant = document.getElementById('btn-role-occupant');
+      const occupantModal = document.getElementById('occupant-modal');
+      const closeBtn = document.getElementById('btn-close-occupant');
+      const closeXBtn = document.getElementById('btn-close-occupant-x');
+      const backdrop = document.getElementById('occupant-backdrop');
+
+      function setFacilityActive() {
+        if (!btnFacility || !btnOccupant) return;
+        btnFacility.className = 'px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-semibold bg-primary text-on-primary shadow-xs transition-colors';
+        btnOccupant.className = 'px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-medium text-outline hover:text-on-surface transition-colors flex items-center gap-1';
+      }
+
+      function setOccupantActive() {
+        if (!btnFacility || !btnOccupant) return;
+        btnOccupant.className = 'px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-semibold bg-primary text-on-primary shadow-xs transition-colors flex items-center gap-1';
+        btnFacility.className = 'px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-medium text-outline hover:text-on-surface transition-colors';
+      }
+
+      function openOccupantView() {
+        setOccupantActive();
+        if (occupantModal) occupantModal.classList.remove('hidden');
+      }
+
+      function closeOccupantView() {
+        setFacilityActive();
+        if (occupantModal) occupantModal.classList.add('hidden');
+      }
+
+      if (btnOccupant) {
+        btnOccupant.onclick = openOccupantView;
+      }
+
+      if (btnFacility) {
+        btnFacility.onclick = () => {
+          setFacilityActive();
+          if (occupantModal) occupantModal.classList.add('hidden');
+          if (window.showToast) window.showToast('Switched to Facility Manager view');
+        };
+      }
+
+      if (closeBtn) closeBtn.onclick = closeOccupantView;
+      if (closeXBtn) closeXBtn.onclick = closeOccupantView;
+      if (backdrop) backdrop.onclick = closeOccupantView;
+
+      // Micro-climate temperature adjustment buttons
+      let currTemp = 24.0;
+      const tempVal = document.getElementById('occ-temp-val');
+      const btnUp = document.getElementById('occ-temp-up');
+      const btnDown = document.getElementById('occ-temp-down');
+
+      if (btnUp && tempVal) {
+        btnUp.onclick = () => {
+          if (currTemp < 26.0) {
+            currTemp = parseFloat((currTemp + 0.5).toFixed(1));
+            tempVal.textContent = currTemp.toFixed(1) + '°C';
+            if (window.showToast) window.showToast(`Pod 4B thermostat adjusted to ${currTemp.toFixed(1)}°C`);
+          }
+        };
+      }
+
+      if (btnDown && tempVal) {
+        btnDown.onclick = () => {
+          if (currTemp > 21.0) {
+            currTemp = parseFloat((currTemp - 0.5).toFixed(1));
+            tempVal.textContent = currTemp.toFixed(1) + '°C';
+            if (window.showToast) window.showToast(`Pod 4B thermostat adjusted to ${currTemp.toFixed(1)}°C`);
+          }
+        };
+      }
+
+      const evToggle = document.getElementById('occ-ev-toggle');
+      if (evToggle) {
+        evToggle.onchange = (e) => {
+          const state = e.target.checked ? 'Shifted (Peak Shaving Armed)' : 'Active (Charging immediately)';
+          if (window.showToast) window.showToast(`Stall #14 EV charging: ${state}`);
+        };
+      }
+    })();
+  </script>
+</body></html>
