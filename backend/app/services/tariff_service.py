@@ -154,6 +154,8 @@ class TariffPeriodResult(BaseModel):
     timestamp: str = Field(..., description="ISO 8601 timestamp in Asia/Kolkata (+05:30)")
     period: str = Field(..., description="'peak', 'off_peak', or 'normal'")
     is_peak: bool = Field(..., description="True if inside peak period, False otherwise")
+    adjustment_percent: float = Field(0.0, description="Percentage adjustment on base rate (-20.0 for 20% rebate, 0.0 for normal, +20.0 for peak)")
+    base_energy_rate: Optional[float] = Field(None, description="Base energy rate in INR/kWh (None if unverified)")
     applicable_rate: Optional[float] = Field(None, description="Active energy tariff in INR per kWh, or None if unverified")
     demand_charge: Optional[float] = Field(None, description="Contracted demand charge in INR per kW/month, or None if unverified")
     currency: str = "INR"
@@ -201,46 +203,61 @@ class PeakCostDifferenceResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Default Regulatory Tariff Configuration (BRPL / DERC Schedule)
+# October Regulatory Tariff Configuration (BRPL / DERC Winter Schedule)
 # ---------------------------------------------------------------------------
 # Modeled strictly after official DERC ToD order for BSES Rajdhani Power Limited (BRPL).
-# Surcharges (+20%) and rebates (20%) are per DERC order.
-# Base rates are explicitly set to None (unverified) until verified from facility bills.
-# Synthetic demo rates (11.50, 7.00, 350.00, 18:00-21:00) have been removed.
-DEFAULT_BRPL_TARIFF = TariffConfig(
+# October / winter-season schedule:
+#   00:00–06:00: Off-Peak (20% rebate on base energy rate)
+#   06:00–18:00: Normal (base energy rate)
+#   18:00–24:00: Normal (base energy rate — no peak surcharge in October)
+# Base rate is explicitly set to None (unverified) until verified from facility bills.
+OCTOBER_BRPL_DEMO_TARIFF = TariffConfig(
     building_name="Academic Building",
     utility="BSES Rajdhani Power Limited (BRPL)",
     consumer_category="Non-Domestic / Institutional (HT/LT)",
-    peak_windows=[
-        TimeWindow(start=time(14, 0, 0), end=time(17, 0, 0), name="Afternoon Peak"),
-        TimeWindow(start=time(22, 0, 0), end=time(1, 0, 0), name="Night Peak"),
-    ],
+    peak_windows=[],  # No peak period in October / winter schedule per DERC
     offpeak_windows=[
-        TimeWindow(start=time(4, 0, 0), end=time(10, 0, 0), name="Morning Off-Peak"),
+        TimeWindow(start=time(0, 0, 0), end=time(6, 0, 0), name="Night/Morning Off-Peak"),
     ],
-    peak_adjustment=0.20,       # +20% DERC surcharge
-    offpeak_rebate=0.20,        # 20% DERC rebate
+    peak_adjustment=0.00,       # 0% peak surcharge in October
+    offpeak_rebate=0.20,        # 20% DERC rebate for off-peak hours (00:00–06:00)
     base_energy_rate=None,      # Unverified — configure from facility DISCOM bill
     demand_charge=None,         # Unverified — configure from contracted sanctioned load
     currency="INR",
-    effective_from="2023-04-01",
-    effective_to=None,
-    source="Delhi Electricity Regulatory Commission (DERC) Tariff Order for BRPL",
+    effective_from="2016-10-01",
+    effective_to="2016-10-31",
+    source="Delhi Electricity Regulatory Commission (DERC) Tariff Order for BRPL (October/Winter Schedule)",
     source_url="http://www.derc.gov.in/",
     is_verified=False,
-    note=DERC_PROVENANCE_NOTE,
+    note=(
+        "Tariff schedule is a configurable regulatory reference for demonstration. "
+        "October / winter-season schedule for BRPL: 00:00–06:00 off-peak (-20% rebate), "
+        "06:00–24:00 normal (0% adjustment). "
+        "Verify the applicable DISCOM tariff and consumer category before deployment. "
+        "This is NOT the historical tariff of the I-BLEND dataset."
+    ),
 )
+
+# Set October BRPL demo tariff as default configuration for demo
+DEFAULT_BRPL_TARIFF = OCTOBER_BRPL_DEMO_TARIFF
 
 
 def get_default_tariff_config(building_name: Optional[str] = None) -> TariffConfig:
     """
-    Returns the default regulatory tariff configuration.
+    Returns the default regulatory tariff configuration (October BRPL demo tariff).
     
     Base energy rate is unverified (None) by default to prevent fictitious rate claims.
     """
     if building_name and building_name != DEFAULT_BRPL_TARIFF.building_name:
         return DEFAULT_BRPL_TARIFF.model_copy(update={"building_name": building_name})
     return DEFAULT_BRPL_TARIFF
+
+
+def get_october_tariff_config(building_name: Optional[str] = None) -> TariffConfig:
+    """Returns the October BRPL demo tariff configuration."""
+    if building_name and building_name != OCTOBER_BRPL_DEMO_TARIFF.building_name:
+        return OCTOBER_BRPL_DEMO_TARIFF.model_copy(update={"building_name": building_name})
+    return OCTOBER_BRPL_DEMO_TARIFF
 
 
 def get_demo_tariff_config(building_name: Optional[str] = None) -> TariffConfig:
@@ -322,19 +339,24 @@ def get_tariff_for_timestamp(
         period = "peak"
         is_peak = True
         applicable_rate = config.peak_rate
+        adjustment_percent = round(config.peak_adjustment * 100, 2)
     elif is_time_in_windows(time_of_day, offpeak_windows):
         period = "off_peak"
         is_peak = False
         applicable_rate = config.offpeak_rate
+        adjustment_percent = -round(config.offpeak_rebate * 100, 2)
     else:
         period = "normal"
         is_peak = False
         applicable_rate = config.normal_rate
+        adjustment_percent = 0.0
 
     return TariffPeriodResult(
         timestamp=localized_dt.isoformat(),
         period=period,
         is_peak=is_peak,
+        adjustment_percent=adjustment_percent,
+        base_energy_rate=config.base_energy_rate,
         applicable_rate=applicable_rate,
         demand_charge=config.demand_charge,
         currency=config.currency,

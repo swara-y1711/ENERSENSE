@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.tariff import router as tariff_router
+from app.api.replay import router as replay_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -30,6 +31,9 @@ app.include_router(health_router)
 
 # Include Time-of-Day Tariff Router under /api
 app.include_router(tariff_router, prefix="/api")
+
+# Include Historical Telemetry Replay Router under /api
+app.include_router(replay_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
