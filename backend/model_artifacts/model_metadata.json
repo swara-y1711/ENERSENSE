@@ -1,0 +1,48 @@
+{
+  "model_name": "XGBoost Regressor",
+  "algorithm": "xgboost.XGBRegressor",
+  "mode": "historical_backtest",
+  "feature_count": 12,
+  "features": [
+    "demand_lag_15m",
+    "demand_lag_30m",
+    "demand_lag_60m",
+    "demand_lag_1d",
+    "temperature_c",
+    "relative_humidity_percent",
+    "rainfall_mm",
+    "hour",
+    "minute",
+    "day_of_week",
+    "is_weekend",
+    "day_of_month"
+  ],
+  "training_period": {
+    "start": "2016-10-01T00:00:00+05:30",
+    "end": "2016-10-25T18:45:00+05:30",
+    "records": 2380
+  },
+  "test_period": {
+    "start": "2016-10-25T19:00:00+05:30",
+    "end": "2016-10-31T23:45:00+05:30",
+    "records": 596
+  },
+  "metrics": {
+    "mae": 1.2449,
+    "rmse": 1.8066,
+    "r2": 0.9805
+  },
+  "baseline_metrics": {
+    "mae": 1.0186,
+    "rmse": 1.9714,
+    "r2": 0.9768
+  },
+  "parameters": {
+    "n_estimators": 100,
+    "max_depth": 5,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8
+  },
+  "source": "I-BLEND Academic Building Telemetry + Open-Meteo Historical Weather"
+}
