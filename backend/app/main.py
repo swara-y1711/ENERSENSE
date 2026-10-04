@@ -8,6 +8,7 @@ from app.api.weather import router as weather_router
 from app.api.forecast import router as forecast_router
 from app.api.peak import router as peak_router
 from app.api.flexibility import router as flexibility_router
+from app.api.recommendations import router as recommendations_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -50,6 +51,9 @@ app.include_router(peak_router, prefix="/api")
 
 # Include Flexible Demand Estimation Router under /api
 app.include_router(flexibility_router, prefix="/api")
+
+# Include Advisory Recommendations Router under /api (Stage 5)
+app.include_router(recommendations_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
