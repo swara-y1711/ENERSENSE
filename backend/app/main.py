@@ -10,6 +10,8 @@ from app.api.peak import router as peak_router
 from app.api.flexibility import router as flexibility_router
 from app.api.recommendations import router as recommendations_router
 from app.api.impact import router as impact_router
+from app.api.db import router as db_router
+from app.db.database import init_db
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,6 +20,13 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+@app.on_event("startup")
+def on_startup():
+    """Initialize database tables on application startup."""
+    init_db()
+
 
 # CORS Configuration for local Next.js frontend and production URLs
 app.add_middleware(
@@ -58,6 +67,9 @@ app.include_router(recommendations_router, prefix="/api")
 
 # Include Impact & Baseline Verification Router under /api (Stage 6)
 app.include_router(impact_router, prefix="/api")
+
+# Include Database Router under /api (Stage 8)
+app.include_router(db_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])

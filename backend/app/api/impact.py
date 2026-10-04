@@ -62,9 +62,35 @@ async def simulate_impact_scenario(request: ImpactSimulationRequest):
     """
     Simulates a multi-interval grid-event scenario over [start_timestamp, end_timestamp],
     capping applied reductions by estimated potential flexibility and calculating kWh energy impact.
+    Persists simulation summary result to impact_simulations table.
     """
     try:
-        return impact_service.simulate_impact_scenario(request)
+        res = impact_service.simulate_impact_scenario(request)
+        # Stage 8: Persist simulation summary
+        try:
+            from app.db.database import SessionLocal
+            from app.services.persistence_service import get_or_create_building, persist_impact_simulation
+            db = SessionLocal()
+            try:
+                b = get_or_create_building(db)
+                persist_impact_simulation(
+                    db,
+                    building_id=b.id,
+                    sim_data={
+                        "start_timestamp": res.start_timestamp,
+                        "end_timestamp": res.end_timestamp,
+                        "requested_reduction_kw": res.requested_reduction_kw,
+                        "total_simulated_reduction_kwh": res.total_simulated_reduction_kwh,
+                        "average_simulated_reduction_kw": res.average_simulated_reduction_kw,
+                    },
+                )
+            finally:
+                db.close()
+        except Exception as p_err:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to persist impact simulation: {p_err}")
+
+        return res
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

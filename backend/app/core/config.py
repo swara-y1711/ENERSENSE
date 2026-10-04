@@ -16,6 +16,11 @@ class Settings(BaseModel):
     SUPABASE_URL: str = Field(default_factory=lambda: os.getenv("SUPABASE_URL", ""))
     SUPABASE_KEY: str = Field(default_factory=lambda: os.getenv("SUPABASE_KEY", ""))
 
+    # Database URL (PostgreSQL / Supabase / SQLite fallback)
+    DATABASE_URL: str = Field(
+        default_factory=lambda: os.getenv("DATABASE_URL", "sqlite:///./enersense.db")
+    )
+
     # Frontend URL for CORS
     FRONTEND_URL: str = Field(
         default_factory=lambda: os.getenv("FRONTEND_URL", "http://localhost:3000")
