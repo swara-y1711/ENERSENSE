@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export interface ReplayRecord {
   timestamp: string;
@@ -261,7 +261,7 @@ export interface CompletedImpactSimulation {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { cache: 'no-store' });
+  const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`GET ${path} failed with status ${response.status}`);
   }
@@ -270,10 +270,10 @@ async function getJson<T>(path: string): Promise<T> {
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    cache: 'no-store',
+    cache: "no-store",
   });
   if (!response.ok) {
     throw new Error(`POST ${path} failed with status ${response.status}`);
@@ -283,13 +283,13 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 
 function addHoursPreservingOffset(timestamp: string, hours: number): string {
   const offsetMatch = /([+-])(\d{2}):?(\d{2})$/.exec(timestamp);
-  const offsetSuffix = timestamp.endsWith('Z')
-    ? 'Z'
+  const offsetSuffix = timestamp.endsWith("Z")
+    ? "Z"
     : offsetMatch
       ? `${offsetMatch[1]}${offsetMatch[2]}:${offsetMatch[3]}`
-      : 'Z';
+      : "Z";
   const offsetMinutes = offsetMatch
-    ? (offsetMatch[1] === '+' ? 1 : -1) *
+    ? (offsetMatch[1] === "+" ? 1 : -1) *
       (Number(offsetMatch[2]) * 60 + Number(offsetMatch[3]))
     : 0;
   const date = new Date(
@@ -297,78 +297,78 @@ function addHoursPreservingOffset(timestamp: string, hours: number): string {
       hours * 60 * 60 * 1000 +
       offsetMinutes * 60 * 1000,
   );
-  const pad = (value: number) => String(value).padStart(2, '0');
+  const pad = (value: number) => String(value).padStart(2, "0");
   const datePart = [
     date.getUTCFullYear(),
     pad(date.getUTCMonth() + 1),
     pad(date.getUTCDate()),
-  ].join('-');
+  ].join("-");
   const timePart = [
     pad(date.getUTCHours()),
     pad(date.getUTCMinutes()),
     pad(date.getUTCSeconds()),
-  ].join(':');
+  ].join(":");
   return `${datePart}T${timePart}${offsetSuffix}`;
 }
 
 export function getReplayCurrent(): Promise<ReplayRecord> {
-  return getJson('/api/replay/current');
+  return getJson("/api/replay/current");
 }
 
 export function getReplayContext(): Promise<ReplayContext> {
-  return getJson('/api/replay/current-context');
+  return getJson("/api/replay/current-context");
 }
 
 export function getWeatherCurrent(): Promise<WeatherCurrent> {
-  return getJson('/api/weather/current');
+  return getJson("/api/weather/current");
 }
 
 export function getReplaySample(): Promise<ReplayRecord[]> {
-  return getJson('/api/replay/sample');
+  return getJson("/api/replay/sample");
 }
 
 export function getReplayStatus(): Promise<ReplayStatus> {
-  return getJson('/api/replay/status');
+  return getJson("/api/replay/status");
 }
 
 export function getReplayNext(): Promise<ReplayRecord> {
-  return getJson('/api/replay/next');
+  return getJson("/api/replay/next");
 }
 
 export function getForecastCurrent(): Promise<ForecastCurrent> {
-  return getJson('/api/forecast/current');
+  return getJson("/api/forecast/current");
 }
 
 export function getPeakCurrent(): Promise<PeakCurrent> {
-  return getJson('/api/peak/current');
+  return getJson("/api/peak/current");
 }
 
 export function getPeakExpected(): Promise<ExpectedPeak> {
-  return getJson('/api/peak/expected');
+  return getJson("/api/peak/expected");
 }
 
 export function getFlexibilityCurrent(): Promise<FlexibilityCurrent> {
-  return getJson('/api/flexibility/current');
+  return getJson("/api/flexibility/current");
 }
 
 export function getRecommendationsCurrent(): Promise<RecommendationsCurrent> {
-  return getJson('/api/recommendations/current');
+  return getJson("/api/recommendations/current");
 }
 
 export function getRecommendationsExpected(): Promise<RecommendationsExpected> {
-  return getJson('/api/recommendations/expected');
+  return getJson("/api/recommendations/expected");
 }
 
 export function getImpactCurrent(): Promise<ImpactCurrent> {
-  return getJson('/api/impact/current');
+  return getJson("/api/impact/current");
 }
 
 export function getTariffCurrent(): Promise<TariffCurrent> {
-  return getJson('/api/tariff/current');
+  return getJson("/api/tariff/current");
 }
 
 export function getTariffConfig(): Promise<TariffConfig> {
-  return getJson('/api/tariff/config');
+  return getJson("/api/tariff/config");
 }
 
 function sameTimestamp(left: string, right: string): boolean {
@@ -381,7 +381,7 @@ function valueAtTimestamp<T extends { timestamp: string }>(
   result: PromiseSettledResult<T>,
   timestamp: string,
 ): T | null {
-  return result.status === 'fulfilled' &&
+  return result.status === "fulfilled" &&
     sameTimestamp(result.value.timestamp, timestamp)
     ? result.value
     : null;
@@ -417,17 +417,23 @@ export async function getReplayDashboardSnapshot(
     if (!sameTimestamp(replay.timestamp, confirmedReplay.timestamp)) continue;
 
     const hasTimestampMismatch =
-      (forecastResult.status === 'fulfilled' &&
+      (forecastResult.status === "fulfilled" &&
         !sameTimestamp(forecastResult.value.timestamp, replay.timestamp)) ||
-      (peakResult.status === 'fulfilled' &&
+      (peakResult.status === "fulfilled" &&
         !sameTimestamp(peakResult.value.timestamp, replay.timestamp)) ||
-      (flexibilityResult.status === 'fulfilled' &&
+      (flexibilityResult.status === "fulfilled" &&
         !sameTimestamp(flexibilityResult.value.timestamp, replay.timestamp)) ||
-      (recommendationsResult.status === 'fulfilled' &&
-        !sameTimestamp(recommendationsResult.value.timestamp, replay.timestamp)) ||
-      (impactResult.status === 'fulfilled' &&
+      (recommendationsResult.status === "fulfilled" &&
+        !sameTimestamp(
+          recommendationsResult.value.timestamp,
+          replay.timestamp,
+        )) ||
+      (impactResult.status === "fulfilled" &&
         !sameTimestamp(impactResult.value.timestamp, replay.timestamp));
-    const expectedPeakTimestamp = addHoursPreservingOffset(replay.timestamp, 0.25);
+    const expectedPeakTimestamp = addHoursPreservingOffset(
+      replay.timestamp,
+      0.25,
+    );
     if (hasTimestampMismatch) continue;
 
     const sampleResult = includeSample
@@ -437,20 +443,24 @@ export async function getReplayDashboardSnapshot(
     return {
       replay,
       records:
-        sampleResult[0]?.status === 'fulfilled'
-          ? sampleResult[0].value
-          : null,
+        sampleResult[0]?.status === "fulfilled" ? sampleResult[0].value : null,
       replayStatus:
-        statusResult.status === 'fulfilled' ? statusResult.value : null,
+        statusResult.status === "fulfilled" ? statusResult.value : null,
       forecast: valueAtTimestamp(forecastResult, replay.timestamp),
       peak: valueAtTimestamp(peakResult, replay.timestamp),
       expectedPeak:
-        expectedPeakResult.status === 'fulfilled' &&
-        sameTimestamp(expectedPeakResult.value.window_start, expectedPeakTimestamp)
+        expectedPeakResult.status === "fulfilled" &&
+        sameTimestamp(
+          expectedPeakResult.value.window_start,
+          expectedPeakTimestamp,
+        )
           ? expectedPeakResult.value
           : null,
       flexibility: valueAtTimestamp(flexibilityResult, replay.timestamp),
-      recommendations: valueAtTimestamp(recommendationsResult, replay.timestamp),
+      recommendations: valueAtTimestamp(
+        recommendationsResult,
+        replay.timestamp,
+      ),
       expectedRecommendations: valueAtTimestamp(
         expectedRecommendationsResult,
         replay.timestamp,
@@ -466,13 +476,15 @@ export async function getReplayDashboardSnapshot(
         : null,
       tariff: null,
       tariffConfig:
-        tariffConfigResult.status === 'fulfilled'
+        tariffConfigResult.status === "fulfilled"
           ? tariffConfigResult.value
           : null,
     };
   }
 
-  throw new Error('Could not load dashboard data for one stable replay timestamp.');
+  throw new Error(
+    "Could not load dashboard data for one stable replay timestamp.",
+  );
 }
 
 export function simulateFlexibility(
@@ -481,7 +493,7 @@ export function simulateFlexibility(
   requestedReductionKw: number,
 ): Promise<GridEventSimulation> {
   const endTime = addHoursPreservingOffset(startTime, durationHours);
-  return postJson('/api/flexibility/simulate', {
+  return postJson("/api/flexibility/simulate", {
     start_time: startTime,
     end_time: endTime,
     requested_reduction_kw: requestedReductionKw,
@@ -495,7 +507,7 @@ export function simulateImpact(
 ): Promise<ImpactSimulation> {
   const endTimestamp = addHoursPreservingOffset(startTimestamp, durationHours);
 
-  return postJson('/api/impact/simulate', {
+  return postJson("/api/impact/simulate", {
     start_timestamp: startTimestamp,
     end_timestamp: endTimestamp,
     requested_reduction_kw: requestedReductionKw,
