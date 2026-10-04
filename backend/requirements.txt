@@ -1,2 +1,10 @@
-
+fastapi
 uvicorn
+python-dotenv
+pydantic
+sqlalchemy
+supabase
+pandas
+numpy
+scikit-learn
+httpx
