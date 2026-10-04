@@ -6,6 +6,8 @@ from app.api.tariff import router as tariff_router
 from app.api.replay import router as replay_router
 from app.api.weather import router as weather_router
 from app.api.forecast import router as forecast_router
+from app.api.peak import router as peak_router
+from app.api.flexibility import router as flexibility_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -42,6 +44,12 @@ app.include_router(weather_router, prefix="/api")
 
 # Include XGBoost Demand Forecast Router under /api
 app.include_router(forecast_router, prefix="/api")
+
+# Include Peak Demand Detection Router under /api
+app.include_router(peak_router, prefix="/api")
+
+# Include Flexible Demand Estimation Router under /api
+app.include_router(flexibility_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
