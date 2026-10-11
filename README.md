@@ -1,7 +1,6 @@
 # ⚡ ENERSENSE
 
 #Deployed Link - https://enersense-6ses.vercel.app
-<img width="1381" height="167" alt="image" src="https://github.com/user-attachments/assets/43df9d03-9431-4b4c-9de1-01b66370b442" />
 
 ### Predict. Shift. Measure. Care.
 
